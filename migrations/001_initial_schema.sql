@@ -1,0 +1,21 @@
+-- migrations/001_initial_schema.sql
+
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+CREATE TABLE IF NOT EXISTS logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    timestamp TIMESTAMPTZ NOT NULL,
+    level VARCHAR(10) NOT NULL CHECK (level IN ('debug', 'info', 'warn', 'error')),
+    service VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    attributes JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Indexes for performance and sorting
+CREATE INDEX IF NOT EXISTS idx_logs_timestamp_desc ON logs (timestamp DESC, id DESC);
+CREATE INDEX IF NOT EXISTS idx_logs_service ON logs (service);
+CREATE INDEX IF NOT EXISTS idx_logs_level ON logs (level);
+CREATE INDEX IF NOT EXISTS idx_logs_attributes_gin ON logs USING GIN (attributes);
+CREATE INDEX IF NOT EXISTS idx_logs_message_trgm ON logs USING GIN (message gin_trgm_ops);
