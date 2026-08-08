@@ -28,9 +28,15 @@ export function validateLogEntry(entry: any): string | null {
     return 'timestamp must not be more than five minutes in the future';
   }
 
-  if (!entry.level || !VALID_LEVELS.includes(entry.level)) {
+  if (!entry.level || typeof entry.level !== 'string') {
+    return `level is required and must be a string`;
+  }
+  const normalizedLevel = entry.level.toLowerCase();
+  if (!VALID_LEVELS.includes(normalizedLevel)) {
     return `level is required and must be one of: ${VALID_LEVELS.join(', ')}`;
   }
+  entry.level = normalizedLevel;
+  // --------------------------------------------------
 
   if (!entry.service || typeof entry.service !== 'string' || entry.service.trim() === '') {
     return 'service is required and must be a non-empty string';

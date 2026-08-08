@@ -1,6 +1,7 @@
-// src/config/database.ts
 import { Pool } from 'pg';
+import { drizzle } from 'drizzle-orm/node-postgres';
 import dotenv from 'dotenv';
+import * as schema from './schema'; // تأكد أن مسار الـ schema صحيح بالنسبة لمكان هذا الملف
 
 dotenv.config();
 
@@ -8,7 +9,10 @@ const connectionString = process.env.DATABASE_URL || 'postgres://postgres:passwo
 
 export const pool = new Pool({
   connectionString,
+  max: 20, 
 });
+
+export const db = drizzle(pool, { schema });
 
 // connection with db 
 export async function connectDB() {
