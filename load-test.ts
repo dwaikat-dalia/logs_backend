@@ -7,10 +7,13 @@ const CONCURRENT_REQUESTS = 1; //Successful*/
 /*const TOTAL_LOGS_TO_SEND = 5000;
 const BATCH_SIZE = 500; //
 const CONCURRENT_REQUESTS = 2;// Successful 
-*/
+*//*
 const TOTAL_LOGS_TO_SEND = 15000;
 const BATCH_SIZE = 5000; // 
-const CONCURRENT_REQUESTS = 3; // Successful in 13 second
+const CONCURRENT_REQUESTS = 3;*/ // Successful in 13 second
+const TOTAL_LOGS_TO_SEND = 100000; // 
+const BATCH_SIZE = 1000;           // 
+const CONCURRENT_REQUESTS = 20;    //
 interface LogEntry {
   timestamp: string;
   level: "debug" | "info" | "warn" | "error";
@@ -73,13 +76,15 @@ async function runLoadTest() {
     const chunkPromises = [];
     
     for (let j = 0; j < CONCURRENT_REQUESTS && (i + j) < totalBatches; j++) {
-      const batch = generateBatch(BATCH_SIZE);
-      chunkPromises.push(
-        sendBatch(batch).then((success) => {
-          if (success) successfulLogs += BATCH_SIZE;
-        })
-      );
-    }
+  const currentBatchSize = Math.min(BATCH_SIZE, TOTAL_LOGS_TO_SEND - (i + j) * BATCH_SIZE);
+  const batch = generateBatch(currentBatchSize);
+  
+  chunkPromises.push(
+    sendBatch(batch).then((success) => {
+      if (success) successfulLogs += currentBatchSize;
+    })
+  );
+}
 
     await Promise.all(chunkPromises);
     completedBatches += CONCURRENT_REQUESTS;

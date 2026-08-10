@@ -51,12 +51,19 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
       rejected: rejectedLogs,
     });
   }
+try {
+    // التقسيم لدفعات (Chunks) لضمان السرعة ومنع الضغط على بوستبريس
+    const CHUNK_SIZE = 1000;
+    let totalInsertedCount = 0;
 
-  try {
-    const insertedLogs = await db.insert(logs).values(validLogsToInsert).returning();
+    for (let i = 0; i < validLogsToInsert.length; i += CHUNK_SIZE) {
+      const chunk = validLogsToInsert.slice(i, i + CHUNK_SIZE);
+      const insertedChunk = await db.insert(logs).values(chunk).returning();
+      totalInsertedCount += insertedChunk.length;
+    }
 
     return res.status(200).json({
-      accepted: insertedLogs.length,
+      accepted: totalInsertedCount,
       rejected: rejectedLogs,
     });
   } catch (err) {

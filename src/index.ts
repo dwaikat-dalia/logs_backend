@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import dotenv from 'dotenv';
 import { connectDB, db } from './db/database';
-import logsRouter from './routes/logs'; // استدعاء الراوتر الجديد
+import logsRouter from './routes/logs'; // 
 
 dotenv.config();
 const app = express();

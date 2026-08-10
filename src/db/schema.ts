@@ -12,7 +12,6 @@ export const logs = pgTable('logs', {
   return {
     timestampIdx: index('logs_timestamp_idx').on(table.timestamp.desc()),
     serviceIdx: index('logs_service_idx').on(table.service),
-    levelIdx: index('logs_level_idx').on(table.level),
-    attributesGinIdx: index('logs_attributes_gin_idx').using('gin', table.attributes),
+    // attributesGinIdx: index('logs_attributes_gin_idx').using('gin', table.attributes),
   };
 });
