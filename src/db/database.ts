@@ -1,29 +1,30 @@
 import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import dotenv from 'dotenv';
-import * as schema from './schema'; 
 
 dotenv.config();
 
-const connectionString = process.env.DATABASE_URL || 'postgres://postgres:password@localhost:5432/logs_db';
+const connectionString =
+  process.env.DATABASE_URL ||
+  'postgres://postgres:password@localhost:5432/logs_db';
 
 export const pool = new Pool({
   connectionString,
-  max: 10, 
+
+  max: 10,
+
+  min: 2,
+
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+
+  connectionTimeoutMillis: 5000,
+
+  allowExitOnIdle: false,
 });
 
-export const db = drizzle(pool, { schema });
+export const db = drizzle(pool);
 
-// connection with db 
 export async function connectDB() {
-  try {
-    const client = await pool.connect();
-    console.log('Successfully connected to PostgreSQL database');
-    client.release();
-  } catch (err) {
-    console.error('Database connection error:', err);
-    process.exit(1);
-  }
+  await pool.query('SELECT 1');
+  console.log('Database connected successfully');
 }

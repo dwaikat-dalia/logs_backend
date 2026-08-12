@@ -3,32 +3,44 @@ version: '3.8'
 services:
   postgres:
     image: postgres:15-alpine
+
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
       POSTGRES_DB: logs_db
-    command: 
-      - "postgres"
-      - "-c"
-      - "synchronous_commit=off"
-      - "-c"
-      - "fsync=off"
-      - "-c"
-      - "full_page_writes=off"
-      - "-c"
-      - "shared_buffers=256MB"
-      - "-c"
-      - "work_mem=16MB"
+
+    command:
+      - postgres
+      - -c
+      - synchronous_commit=off
+      - -c
+      - fsync=off
+      - -c
+      - full_page_writes=off
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - work_mem=16MB
+      - -c
+      - maintenance_work_mem=128MB
+      - -c
+      - max_connections=20
+      - -c
+      - random_page_cost=1.1
+
     ports:
       - "5432:5432"
+
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./migrations:/docker-entrypoint-initdb.d
+
     deploy:
       resources:
         limits:
           cpus: '1.0'
           memory: 1G
+
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d logs_db"]
       interval: 5s
@@ -37,16 +49,19 @@ services:
 
   app:
     build: .
+
     ports:
       - "8080:8080"
+
     environment:
-      - PORT=8080
-      - DATABASE_URL=postgres://postgres:password@postgres:5432/logs_db
-      - AUTH_ENABLED=false
-    
+      PORT: 8080
+      DATABASE_URL: postgres://postgres:password@postgres:5432/logs_db
+      AUTH_ENABLED: "false"
+
     depends_on:
       postgres:
         condition: service_healthy
+
     deploy:
       resources:
         limits:

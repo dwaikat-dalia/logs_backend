@@ -1,19 +1,21 @@
 import express, { Request, Response } from 'express';
 import dotenv from 'dotenv';
 import { connectDB, db } from './db/database';
-import logsRouter from './routes/logs'; // 
+import logsRouter from './routes/logs';
 import { sql } from 'drizzle-orm';
 
 dotenv.config();
+
 const app = express();
 const PORT = process.env.PORT || 8080;
 
 app.use(express.json({ limit: '10mb' }));
 
-//test
+// Health check
 app.get('/health', async (req: Request, res: Response) => {
   try {
-    await db.execute('SELECT 1');
+    await db.execute(sql`SELECT 1`);
+
     res.status(200).json({
       status: 'healthy',
       database: 'connected',
@@ -28,7 +30,7 @@ app.get('/health', async (req: Request, res: Response) => {
   }
 });
 
-// logs 
+// Logs
 app.use('/logs', logsRouter);
 
 async function startServer() {
@@ -36,16 +38,28 @@ async function startServer() {
 
   app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
-
-    setInterval(async () => {
-      try {
-        await db.execute(sql`DELETE FROM logs WHERE timestamp < NOW() - INTERVAL '30 days'`);
-        console.log("Background retention cleanup: Old logs deleted successfully.");
-      } catch (err) {
-        console.error("Failed to clean old logs in background:", err);
-      }
-    }, 24 * 60 * 60 * 1000);
   });
+
+  setInterval(async () => {
+    try {
+      await db.execute(sql`
+        DELETE FROM logs
+        WHERE id IN (
+          SELECT id
+          FROM logs
+          WHERE timestamp < NOW() - INTERVAL '30 days'
+          LIMIT 10000
+        )
+      `);
+
+      console.log('Retention cleanup completed.');
+    } catch (err) {
+      console.error('Retention cleanup failed:', err);
+    }
+  }, 60 * 60 * 1000);
 }
 
-startServer();
+startServer().catch((err) => {
+  console.error('Failed to start server:', err);
+  process.exit(1);
+});

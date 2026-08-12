@@ -3,8 +3,8 @@ import { performance } from "perf_hooks";
 const TARGET_URL = "http://localhost:8080/logs";
 
 const TOTAL_LOGS_TO_SEND = 100000; 
-const BATCH_SIZE = 500;          // <-- قم بتغيير هذه إلى 1000 أو 2000
-const CONCURRENT_REQUESTS = 8;    // <-- قم بتغيير هذه إلى 20    
+const BATCH_SIZE = 2000;          // <-- قم بتغيير هذه إلى 1000 أو 2000
+const CONCURRENT_REQUESTS =1;    // <-- قم بتغيير هذه إلى 20    
 
 interface LogEntry {
   timestamp: string;
