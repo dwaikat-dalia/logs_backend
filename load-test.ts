@@ -1,19 +1,11 @@
 import { performance } from "perf_hooks";
 
 const TARGET_URL = "http://localhost:8080/logs";
-/*const TOTAL_LOGS_TO_SEND = 50; // 
-const BATCH_SIZE = 50; 
-const CONCURRENT_REQUESTS = 1; //Successful*/
-/*const TOTAL_LOGS_TO_SEND = 5000;
-const BATCH_SIZE = 500; //
-const CONCURRENT_REQUESTS = 2;// Successful 
-*//*
-const TOTAL_LOGS_TO_SEND = 15000;
-const BATCH_SIZE = 5000; // 
-const CONCURRENT_REQUESTS = 3;*/ // Successful in 13 second
-const TOTAL_LOGS_TO_SEND = 100000; // 
-const BATCH_SIZE = 1000;           // 
-const CONCURRENT_REQUESTS = 20;    //
+
+const TOTAL_LOGS_TO_SEND = 100000; 
+const BATCH_SIZE = 500;          // <-- قم بتغيير هذه إلى 1000 أو 2000
+const CONCURRENT_REQUESTS = 8;    // <-- قم بتغيير هذه إلى 20    
+
 interface LogEntry {
   timestamp: string;
   level: "debug" | "info" | "warn" | "error";
@@ -43,7 +35,8 @@ function generateBatch(size: number): { logs: LogEntry[] } {
   return { logs }; 
 }
 
-async function sendBatch(batch: { logs: LogEntry[] }): Promise<boolean> {
+async function sendBatch(batch: { logs: LogEntry[] }): Promise<{ success: boolean; duration: number }> {
+  const start = performance.now();
   try {
     const response = await fetch(TARGET_URL, {
       method: "POST",
@@ -51,24 +44,25 @@ async function sendBatch(batch: { logs: LogEntry[] }): Promise<boolean> {
       body: JSON.stringify(batch),
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.log(`\n❌ Error Status ${response.status}:`, errorText);
-    }
-
-    return response.ok;
+    const duration = performance.now() - start;
+    return { success: response.ok, duration };
   } catch (error) {
-    console.log(`\n❌ Network Connection Error:`, error);
-    return false;
+    const duration = performance.now() - start;
+    return { success: false, duration };
   }
 }
 
 async function runLoadTest() {
   console.log(`Starting local load test: Sending ${TOTAL_LOGS_TO_SEND} logs...`);
+  console.log(`Batch Size: ${BATCH_SIZE} | Concurrency: ${CONCURRENT_REQUESTS}\n`);
   
   const totalBatches = Math.ceil(TOTAL_LOGS_TO_SEND / BATCH_SIZE);
   let completedBatches = 0;
   let successfulLogs = 0;
+  let failedBatches = 0;
+  let totalLatency = 0;
+  let minLatency = Infinity;
+  let maxLatency = 0;
 
   const startTime = performance.now();
 
@@ -76,15 +70,22 @@ async function runLoadTest() {
     const chunkPromises = [];
     
     for (let j = 0; j < CONCURRENT_REQUESTS && (i + j) < totalBatches; j++) {
-  const currentBatchSize = Math.min(BATCH_SIZE, TOTAL_LOGS_TO_SEND - (i + j) * BATCH_SIZE);
-  const batch = generateBatch(currentBatchSize);
-  
-  chunkPromises.push(
-    sendBatch(batch).then((success) => {
-      if (success) successfulLogs += currentBatchSize;
-    })
-  );
-}
+      const currentBatchSize = Math.min(BATCH_SIZE, TOTAL_LOGS_TO_SEND - (i + j) * BATCH_SIZE);
+      const batch = generateBatch(currentBatchSize);
+      
+      chunkPromises.push(
+        sendBatch(batch).then(({ success, duration }) => {
+          if (success) {
+            successfulLogs += currentBatchSize;
+          } else {
+            failedBatches++;
+          }
+          totalLatency += duration;
+          if (duration < minLatency) minLatency = duration;
+          if (duration > maxLatency) maxLatency = duration;
+        })
+      );
+    }
 
     await Promise.all(chunkPromises);
     completedBatches += CONCURRENT_REQUESTS;
@@ -94,11 +95,15 @@ async function runLoadTest() {
   const endTime = performance.now();
   const durationInSeconds = (endTime - startTime) / 1000;
   const logsPerSecond = successfulLogs > 0 ? Math.round(successfulLogs / durationInSeconds) : 0;
+  const avgLatency = totalBatches > 0 ? (totalLatency / totalBatches).toFixed(2) : 0;
 
-  console.log("\n--- Load Test Results ---");
+  console.log("\n\n--- Load Test Final Results ---");
   console.log(`Total Successful Logs: ${successfulLogs}`);
-  console.log(`Total Time: ${durationInSeconds.toFixed(2)} seconds`);
-  console.log(`Throughput: ${logsPerSecond} logs/second`);
+  console.log(`Failed Batches:        ${failedBatches}`);
+  console.log(`Total Time:          ${durationInSeconds.toFixed(2)} seconds`);
+  console.log(`Throughput:          ${logsPerSecond} logs/second`);
+  console.log(`Avg Request Latency: ${avgLatency} ms`);
+  console.log(`Min/Max Latency:     ${minLatency.toFixed(2)}ms / ${maxLatency.toFixed(2)}ms`);
 }
 
 runLoadTest();

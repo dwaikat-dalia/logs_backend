@@ -7,6 +7,18 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
       POSTGRES_DB: logs_db
+    command: 
+      - "postgres"
+      - "-c"
+      - "synchronous_commit=off"
+      - "-c"
+      - "fsync=off"
+      - "-c"
+      - "full_page_writes=off"
+      - "-c"
+      - "shared_buffers=256MB"
+      - "-c"
+      - "work_mem=16MB"
     ports:
       - "5432:5432"
     volumes:
@@ -31,7 +43,7 @@ services:
       - PORT=8080
       - DATABASE_URL=postgres://postgres:password@postgres:5432/logs_db
       - AUTH_ENABLED=false
-    env_file: .env
+    
     depends_on:
       postgres:
         condition: service_healthy

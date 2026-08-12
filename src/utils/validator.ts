@@ -1,48 +1,32 @@
 // src/utils/validator.ts
 
-export interface LogEntry {
-  timestamp: string;
-  level: string;
-  service: string;
-  message: string;
-  attributes?: Record<string, any>;
-}
-
-const VALID_LEVELS = ['debug', 'info', 'warn', 'error'];
-
 export function validateLogEntry(entry: any): string | null {
-  if (!entry || typeof entry !== 'object') {
-    return 'entry must be an object';
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+    return 'entry must be a valid object';
   }
 
-  if (!entry.timestamp || typeof entry.timestamp !== 'string') {
+  if (typeof entry.timestamp !== 'string') {
     return 'timestamp is required and must be a string';
   }
-  const timestampDate = new Date(entry.timestamp);
-  if (isNaN(timestampDate.getTime())) {
+  const timeMs = Date.parse(entry.timestamp);
+  if (Number.isNaN(timeMs)) {
     return 'timestamp must be a valid ISO 8601 timestamp';
   }
   
-  const fiveMinutesInFuture = new Date(Date.now() + 5 * 60 * 1000);
-  if (timestampDate > fiveMinutesInFuture) {
+  if (timeMs > Date.now() + 300000) {
     return 'timestamp must not be more than five minutes in the future';
   }
 
-  if (!entry.level || typeof entry.level !== 'string') {
-    return `level is required and must be a string`;
+  const level = entry.level;
+  if (level !== 'debug' && level !== 'info' && level !== 'warn' && level !== 'error') {
+    return "level is required and must be one of: debug, info, warn, error";
   }
-  const normalizedLevel = entry.level.toLowerCase();
-  if (!VALID_LEVELS.includes(normalizedLevel)) {
-    return `level is required and must be one of: ${VALID_LEVELS.join(', ')}`;
-  }
-  entry.level = normalizedLevel;
-  // --------------------------------------------------
 
-  if (!entry.service || typeof entry.service !== 'string' || entry.service.trim() === '') {
+  if (typeof entry.service !== 'string' || entry.service.length === 0) {
     return 'service is required and must be a non-empty string';
   }
 
-  if (!entry.message || typeof entry.message !== 'string' || entry.message.trim() === '') {
+  if (typeof entry.message !== 'string' || entry.message.length === 0) {
     return 'message is required and must be a non-empty string';
   }
 
@@ -51,13 +35,14 @@ export function validateLogEntry(entry: any): string | null {
       return 'attributes must be a flat object';
     }
 
-    for (const [key, value] of Object.entries(entry.attributes)) {
-      const valType = typeof value;
+    for (const key of Object.keys(entry.attributes)) {
+      const val = entry.attributes[key];
+      const valType = typeof val;
       if (valType !== 'string' && valType !== 'number' && valType !== 'boolean') {
-        return `attribute '${key}' must have a string, number, or boolean value; nested objects and arrays are not allowed`;
+        return `attribute '${key}' must have a string, number, or boolean value`;
       }
     }
   }
 
-  return null; 
+  return null;
 }

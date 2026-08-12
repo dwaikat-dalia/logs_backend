@@ -13,13 +13,10 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
   const body = req.body;
   
   if (!body || !Array.isArray(body.logs)) {
-    return res.status(400).json({ 
-      error: "Request body must be an object containing a 'logs' array" 
-    });
+    return res.status(400).json({ error: "Request body must contain a 'logs' array" });
   }
 
   const entries = body.logs;
-
   if (entries.length === 0) {
     return res.status(400).json({ error: 'Request body cannot be empty' });
   }
@@ -30,10 +27,7 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
   for (let i = 0; i < entries.length; i++) {
     const errorMsg = validateLogEntry(entries[i]);
     if (errorMsg) {
-      rejectedLogs.push({
-        index: i,
-        reason: errorMsg,
-      });
+      rejectedLogs.push({ index: i, reason: errorMsg });
     } else {
       validLogsToInsert.push({
         timestamp: new Date(entries[i].timestamp),
@@ -46,20 +40,17 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
   }
 
   if (validLogsToInsert.length === 0) {
-    return res.status(400).json({
-      accepted: 0,
-      rejected: rejectedLogs,
-    });
+    return res.status(400).json({ accepted: 0, rejected: rejectedLogs });
   }
-try {
-    // التقسيم لدفعات (Chunks) لضمان السرعة ومنع الضغط على بوستبريس
+
+  try {
     const CHUNK_SIZE = 1000;
     let totalInsertedCount = 0;
 
     for (let i = 0; i < validLogsToInsert.length; i += CHUNK_SIZE) {
       const chunk = validLogsToInsert.slice(i, i + CHUNK_SIZE);
-      const insertedChunk = await db.insert(logs).values(chunk).returning();
-      totalInsertedCount += insertedChunk.length;
+      const inserted = await db.insert(logs).values(chunk).returning({ id: logs.id });
+      totalInsertedCount += inserted.length;
     }
 
     return res.status(200).json({
@@ -84,13 +75,13 @@ router.get('/', async (req: Request, res: Response): Promise<any> => {
       until,
       q,
       cursor,
-      limit = '50',
+      limit = '100',
       order = 'desc',
     } = req.query;
 
     const parsedLimit = parseInt(limit as string, 10);
-    if (isNaN(parsedLimit) || parsedLimit <= 0 || parsedLimit > 100) {
-      return res.status(400).json({ error: 'Invalid limit parameter. Must be between 1 and 100.' });
+    if (isNaN(parsedLimit) || parsedLimit <= 0 || parsedLimit > 1000) {
+      return res.status(400).json({ error: 'Invalid limit parameter. Must be between 1 and 1000.' });
     }
 
     if (order !== 'asc' && order !== 'desc') {
@@ -116,6 +107,15 @@ router.get('/', async (req: Request, res: Response): Promise<any> => {
         return res.status(400).json({ error: "Invalid 'until' timestamp format." });
       }
       conditions.push(lte(logs.timestamp, untilDate));
+    }
+
+    // التحقق من أن since أقدم من أو تساوي until
+    if (since && until) {
+      const sinceDate = new Date(since as string);
+      const untilDate = new Date(until as string);
+      if (sinceDate > untilDate) {
+        return res.status(400).json({ error: "Invalid time range: 'since' must be earlier than or equal to 'until'." });
+      }
     }
 
     if (q) {
@@ -144,21 +144,15 @@ router.get('/', async (req: Request, res: Response): Promise<any> => {
       .limit(parsedLimit + 1);
 
     let nextCursor = null;
-    let hasMore = false;
 
     if (results.length > parsedLimit) {
-      hasMore = true;
       results.pop();
-      nextCursor = results[results.length - 1].id;
+      nextCursor = results[results.length - 1].id.toString();
     }
 
     return res.status(200).json({
-      data: results,
-      pagination: {
-        limit: parsedLimit,
-        nextCursor,
-        hasMore,
-      },
+      logs: results,
+      next_cursor: nextCursor,
     });
 
   } catch (err) {
@@ -166,7 +160,6 @@ router.get('/', async (req: Request, res: Response): Promise<any> => {
     return res.status(500).json({ error: 'Internal server error while fetching logs' });
   }
 });
-
 // ==========================================
 // 3. مسار التجميع الإحصائي (GET /logs/aggregate)
 // ==========================================
