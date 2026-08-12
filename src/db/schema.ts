@@ -3,15 +3,16 @@ import { pgTable, uuid, timestamp, varchar, text, jsonb, index } from 'drizzle-o
 export const logs = pgTable('logs', {
   id: uuid('id').primaryKey().defaultRandom(),
   timestamp: timestamp('timestamp', { withTimezone: true }).notNull(),
-  level: varchar('level', { length: 20 }).notNull(),
-  service: varchar('service', { length: 100 }).notNull(),
+  level: varchar('level', { length: 10 }).notNull(),
+  service: varchar('service', { length: 255 }).notNull(),
   message: text('message').notNull(),
-  attributes: jsonb('attributes'),
+  attributes: jsonb('attributes').default({}).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => {
   return {
-    timestampIdx: index('logs_timestamp_idx').on(table.timestamp.desc()),
-    serviceIdx: index('logs_service_idx').on(table.service),
-    // attributesGinIdx: index('logs_attributes_gin_idx').using('gin', table.attributes),
+    timestampDescIdx: index('idx_logs_timestamp_desc').on(table.timestamp.desc(), table.id.desc()),
+    serviceIdx: index('idx_logs_service').on(table.service),
+    levelIdx: index('idx_logs_level').on(table.level),
+    messageTrgmIdx: index('idx_logs_message_trgm').using('gin', table.sql`message gin_trgm_ops`),
   };
 });

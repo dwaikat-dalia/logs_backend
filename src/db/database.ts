@@ -9,7 +9,7 @@ const connectionString = process.env.DATABASE_URL || 'postgres://postgres:passwo
 
 export const pool = new Pool({
   connectionString,
-  max: 40, 
+  max: 10, 
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
 });

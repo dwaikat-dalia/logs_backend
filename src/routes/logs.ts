@@ -43,18 +43,18 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
     return res.status(400).json({ accepted: 0, rejected: rejectedLogs });
   }
 
-  try {
+try {
     const CHUNK_SIZE = 1000;
-    let totalInsertedCount = 0;
-
-    for (let i = 0; i < validLogsToInsert.length; i += CHUNK_SIZE) {
-      const chunk = validLogsToInsert.slice(i, i + CHUNK_SIZE);
-      const inserted = await db.insert(logs).values(chunk).returning({ id: logs.id });
-      totalInsertedCount += inserted.length;
-    }
+    
+    await db.transaction(async (tx) => {
+      for (let i = 0; i < validLogsToInsert.length; i += CHUNK_SIZE) {
+        const chunk = validLogsToInsert.slice(i, i + CHUNK_SIZE);
+        await tx.insert(logs).values(chunk);
+      }
+    });
 
     return res.status(200).json({
-      accepted: totalInsertedCount,
+      accepted: validLogsToInsert.length, 
       rejected: rejectedLogs,
     });
   } catch (err) {
@@ -109,7 +109,6 @@ router.get('/', async (req: Request, res: Response): Promise<any> => {
       conditions.push(lte(logs.timestamp, untilDate));
     }
 
-    // التحقق من أن since أقدم من أو تساوي until
     if (since && until) {
       const sinceDate = new Date(since as string);
       const untilDate = new Date(until as string);
@@ -160,6 +159,7 @@ router.get('/', async (req: Request, res: Response): Promise<any> => {
     return res.status(500).json({ error: 'Internal server error while fetching logs' });
   }
 });
+
 // ==========================================
 // 3. مسار التجميع الإحصائي (GET /logs/aggregate)
 // ==========================================
@@ -167,7 +167,6 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
   try {
     const { bucket, group_by, since, until } = req.query;
 
-    // 1. التحقق من صحة الـ bucket
     const validBuckets = ['1m', '5m', '1h', '1d'];
     if (!bucket || !validBuckets.includes(bucket as string)) {
       return res.status(400).json({ 
@@ -175,14 +174,12 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
       });
     }
 
-    // 2. التحقق من صحة الـ group_by إن وجد
     if (group_by && group_by !== 'service' && group_by !== 'level') {
       return res.status(400).json({ 
         error: "Invalid 'group_by' parameter. Must be either 'service' or 'level'." 
       });
     }
 
-    // بناء شروط النطاق الزمني
     const conditions = [];
 
     if (since) {
@@ -204,7 +201,6 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
     let results;
 
-    // 3. اختيار تعبير الـ Time Bucket وتنفيذ الاستعلام مباشرة حسب الـ group_by
     if (group_by === 'service') {
       let timeBucketSql;
       switch (bucket) {
@@ -277,4 +273,5 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
     return res.status(500).json({ error: 'Internal server error while aggregating logs' });
   }
 });
+
 export default router;

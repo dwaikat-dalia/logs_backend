@@ -13,9 +13,7 @@ CREATE TABLE IF NOT EXISTS logs (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Indexes for performance and sorting
 CREATE INDEX IF NOT EXISTS idx_logs_timestamp_desc ON logs (timestamp DESC, id DESC);
 CREATE INDEX IF NOT EXISTS idx_logs_service ON logs (service);
 CREATE INDEX IF NOT EXISTS idx_logs_level ON logs (level);
-CREATE INDEX IF NOT EXISTS idx_logs_attributes_gin ON logs USING GIN (attributes);
 CREATE INDEX IF NOT EXISTS idx_logs_message_trgm ON logs USING GIN (message gin_trgm_ops);

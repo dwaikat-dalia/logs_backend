@@ -31,15 +31,18 @@ export function validateLogEntry(entry: any): string | null {
   }
 
   if (entry.attributes !== undefined) {
-    if (entry.attributes === null || typeof entry.attributes !== 'object' || Array.isArray(entry.attributes)) {
+    const attrs = entry.attributes;
+    if (attrs === null || typeof attrs !== 'object' || Array.isArray(attrs)) {
       return 'attributes must be a flat object';
     }
 
-    for (const key of Object.keys(entry.attributes)) {
-      const val = entry.attributes[key];
-      const valType = typeof val;
-      if (valType !== 'string' && valType !== 'number' && valType !== 'boolean') {
-        return `attribute '${key}' must have a string, number, or boolean value`;
+    for (const key in attrs) {
+      if (Object.prototype.hasOwnProperty.call(attrs, key)) {
+        const val = attrs[key];
+        const valType = typeof val;
+        if (valType !== 'string' && valType !== 'number' && valType !== 'boolean') {
+          return `attribute '${key}' must have a string, number, or boolean value`;
+        }
       }
     }
   }
