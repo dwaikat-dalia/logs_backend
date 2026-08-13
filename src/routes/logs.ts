@@ -7,7 +7,7 @@ import { and, eq, gte, lte, ilike, sql, desc, asc } from 'drizzle-orm';
 import { from as copyFrom } from 'pg-copy-streams';
 import { Readable } from 'stream';
 import { performance } from 'perf_hooks';
-
+import { logRollups } from '../db/schema';
 import {
   encodeCursor,
   decodeCursor,
@@ -426,9 +426,9 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
       group_by,
     } = req.query;
 
-    // -----------------------------
+    // ----------------------------------------
     // Required parameters
-    // -----------------------------
+    // ----------------------------------------
 
     if (typeof since !== 'string') {
       return res.status(400).json({
@@ -469,9 +469,9 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
       });
     }
 
-    // -----------------------------
-    // Bucket validation
-    // -----------------------------
+    // ----------------------------------------
+    // Validate bucket
+    // ----------------------------------------
 
     const validBuckets = ['1m', '5m', '1h', '1d'];
 
@@ -481,9 +481,9 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
       });
     }
 
-    // -----------------------------
-    // group_by validation
-    // -----------------------------
+    // ----------------------------------------
+    // Validate group_by
+    // ----------------------------------------
 
     if (
       group_by !== undefined &&
@@ -495,9 +495,9 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
       });
     }
 
-    // -----------------------------
-    // Level validation
-    // -----------------------------
+    // ----------------------------------------
+    // Validate level
+    // ----------------------------------------
 
     const validLevels = ['debug', 'info', 'warn', 'error'];
 
@@ -513,43 +513,130 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
       });
     }
 
-    // -----------------------------
-    // Time bucket
-    // -----------------------------
+    // ----------------------------------------
+    // Detect attribute filters
+    // ----------------------------------------
 
-  const timeBucket = (() => {
-  switch (bucket) {
-    case '1m':
-      return sql`
-        date_trunc('minute', ${logs.timestamp})
-      `;
+    const hasAttributeFilter = Object.keys(req.query).some((key) =>
+      key.startsWith('attr.')
+    );
 
-    case '5m':
-      return sql`
-        to_timestamp(
-          floor(
-            extract(epoch from ${logs.timestamp}) / 300
-          ) * 300
-        )
-      `;
+    // ----------------------------------------
+    // Fast path:
+    // Use rollups for hourly aggregation
+    // when q/attributes are NOT involved.
+    //
+    // We only use the rollup for the recent
+    // 24-hour window because the current
+    // refresh worker maintains that window.
+    // ----------------------------------------
 
-    case '1h':
-      return sql`
-        date_trunc('hour', ${logs.timestamp})
-      `;
+    const now = new Date();
+    const rollupWindowStart = new Date(
+      now.getTime() - 24 * 60 * 60 * 1000
+    );
 
-    case '1d':
-      return sql`
-        date_trunc('day', ${logs.timestamp})
-      `;
+    const canUseRollup =
+      bucket === '1h' &&
+      !q &&
+      !hasAttributeFilter &&
+      sinceDate >= rollupWindowStart;
 
-    default:
-      throw new Error('Invalid bucket');
-  }
-})();
-    // -----------------------------
-    // Filters
-    // -----------------------------
+    if (canUseRollup) {
+      const rollupConditions = [
+        gte(logRollups.bucketStart, sinceDate),
+        sql`${logRollups.bucketStart} < ${untilDate}`,
+      ];
+
+      if (service) {
+        if (typeof service !== 'string') {
+          return res.status(400).json({
+            error: 'Invalid service parameter.',
+          });
+        }
+
+        rollupConditions.push(
+          eq(logRollups.service, service)
+        );
+      }
+
+      if (level) {
+        rollupConditions.push(
+          eq(logRollups.level, level as string)
+        );
+      }
+
+      let results;
+
+      if (group_by === 'service') {
+        results = await db
+          .select({
+            start: logRollups.bucketStart,
+            group: logRollups.service,
+            count: sql<number>`sum(${logRollups.count})`,
+          })
+          .from(logRollups)
+          .where(and(...rollupConditions))
+          .groupBy(
+            logRollups.bucketStart,
+            logRollups.service
+          )
+          .orderBy(
+            asc(logRollups.bucketStart)
+          );
+
+      } else if (group_by === 'level') {
+        results = await db
+          .select({
+            start: logRollups.bucketStart,
+            group: logRollups.level,
+            count: sql<number>`sum(${logRollups.count})`,
+          })
+          .from(logRollups)
+          .where(and(...rollupConditions))
+          .groupBy(
+            logRollups.bucketStart,
+            logRollups.level
+          )
+          .orderBy(
+            asc(logRollups.bucketStart)
+          );
+
+      } else {
+        results = await db
+          .select({
+            start: logRollups.bucketStart,
+            group: sql<string | null>`NULL`,
+            count: sql<number>`sum(${logRollups.count})`,
+          })
+          .from(logRollups)
+          .where(and(...rollupConditions))
+          .groupBy(
+            logRollups.bucketStart
+          )
+          .orderBy(
+            asc(logRollups.bucketStart)
+          );
+      }
+
+      return res.status(200).json({
+        buckets: results.map((row) => ({
+          start: row.start,
+          group: row.group,
+          count: Number(row.count),
+        })),
+      });
+    }
+
+    // ----------------------------------------
+    // Raw logs path
+    // Used for:
+    // - 1m
+    // - 5m
+    // - older ranges than rollup window
+    // - q
+    // - attr.*
+    // ----------------------------------------
 
     const conditions = [
       gte(logs.timestamp, sinceDate),
@@ -557,20 +644,39 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
     ];
 
     if (service) {
-      conditions.push(eq(logs.service, service as string));
+      if (typeof service !== 'string') {
+        return res.status(400).json({
+          error: 'Invalid service parameter.',
+        });
+      }
+
+      conditions.push(
+        eq(logs.service, service)
+      );
     }
 
     if (level) {
-      conditions.push(eq(logs.level, level as string));
+      conditions.push(
+        eq(logs.level, level as string)
+      );
     }
 
     if (q) {
+      if (typeof q !== 'string') {
+        return res.status(400).json({
+          error: 'Invalid q parameter.',
+        });
+      }
+
       conditions.push(
         ilike(logs.message, `%${q}%`)
       );
     }
 
-    // attributes
+    // ----------------------------------------
+    // Attribute filters
+    // ----------------------------------------
+
     for (const [key, value] of Object.entries(req.query)) {
       if (!key.startsWith('attr.')) {
         continue;
@@ -584,14 +690,55 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
 
       const attributeKey = key.substring(5);
 
+      if (!attributeKey) {
+        return res.status(400).json({
+          error: 'Invalid attribute key.',
+        });
+      }
+
       conditions.push(
         sql`${logs.attributes}->>${attributeKey} = ${value}`
       );
     }
 
-    // -----------------------------
-    // Query
-    // -----------------------------
+    // ----------------------------------------
+    // Raw time bucket
+    // ----------------------------------------
+
+    const timeBucket = (() => {
+      switch (bucket) {
+        case '1m':
+          return sql`
+            date_trunc('minute', ${logs.timestamp})
+          `;
+
+        case '5m':
+          return sql`
+            to_timestamp(
+              floor(
+                extract(epoch from ${logs.timestamp}) / 300
+              ) * 300
+            )
+          `;
+
+        case '1h':
+          return sql`
+            date_trunc('hour', ${logs.timestamp})
+          `;
+
+        case '1d':
+          return sql`
+            date_trunc('day', ${logs.timestamp})
+          `;
+
+        default:
+          throw new Error('Invalid bucket');
+      }
+    })();
+
+    // ----------------------------------------
+    // Raw aggregation
+    // ----------------------------------------
 
     let results;
 
@@ -604,8 +751,13 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
         })
         .from(logs)
         .where(and(...conditions))
-        .groupBy(timeBucket, logs.service)
-        .orderBy(asc(timeBucket));
+        .groupBy(
+          timeBucket,
+          logs.service
+        )
+        .orderBy(
+          asc(timeBucket)
+        );
 
     } else if (group_by === 'level') {
       results = await db
@@ -616,8 +768,13 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
         })
         .from(logs)
         .where(and(...conditions))
-        .groupBy(timeBucket, logs.level)
-        .orderBy(asc(timeBucket));
+        .groupBy(
+          timeBucket,
+          logs.level
+        )
+        .orderBy(
+          asc(timeBucket)
+        );
 
     } else {
       results = await db
@@ -629,7 +786,9 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
         .from(logs)
         .where(and(...conditions))
         .groupBy(timeBucket)
-        .orderBy(asc(timeBucket));
+        .orderBy(
+          asc(timeBucket)
+        );
     }
 
     return res.status(200).json({

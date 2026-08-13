@@ -25,3 +25,22 @@ CREATE INDEX IF NOT EXISTS idx_logs_service
 
 CREATE INDEX IF NOT EXISTS idx_logs_level
     ON logs (level);
+
+
+CREATE TABLE IF NOT EXISTS log_rollups (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+
+    bucket_start TIMESTAMPTZ NOT NULL,
+
+    service VARCHAR(255),
+
+    level VARCHAR(10),
+
+    count INTEGER NOT NULL DEFAULT 0,
+
+    CONSTRAINT uq_log_rollups_bucket_service_level
+        UNIQUE (bucket_start, service, level)
+);
+
+CREATE INDEX IF NOT EXISTS idx_log_rollups_bucket
+    ON log_rollups (bucket_start);

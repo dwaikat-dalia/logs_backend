@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 import { connectDB, db } from './db/database';
 import logsRouter from './routes/logs';
 import { sql } from 'drizzle-orm';
-
+import { refreshRollups } from './services/rollup.service';
 dotenv.config();
 
 const app = express();
@@ -32,7 +32,6 @@ app.get('/health', async (req: Request, res: Response) => {
 
 // Logs
 app.use('/logs', logsRouter);
-
 async function startServer() {
   await connectDB();
 
@@ -40,6 +39,15 @@ async function startServer() {
     console.log(`Server is running on port ${PORT}`);
   });
 
+  // Build rollups immediately after the server starts
+  await refreshRollups();
+
+  // Refresh rollups every 5 seconds
+  setInterval(() => {
+    void refreshRollups();
+  }, 10000);
+
+  // Retention cleanup
   setInterval(async () => {
     try {
       await db.execute(sql`
