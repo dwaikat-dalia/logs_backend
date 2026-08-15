@@ -531,16 +531,14 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
     // refresh worker maintains that window.
     // ----------------------------------------
 
-    const now = new Date();
-    const rollupWindowStart = new Date(
-      now.getTime() - 24 * 60 * 60 * 1000
-    );
-
+   
     const canUseRollup =
-      bucket === '1h' &&
-      !q &&
-      !hasAttributeFilter &&
-      sinceDate >= rollupWindowStart;
+  bucket === '1h' &&
+  !q &&
+  !hasAttributeFilter &&
+  sinceDate >= new Date(
+    new Date().setMinutes(0, 0, 0)
+  );
 
     if (canUseRollup) {
       const rollupConditions = [
