@@ -18,11 +18,23 @@ CREATE TABLE IF NOT EXISTS logs (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Sorting + cursor pagination
+-- ==========================================
+-- Logs indexes
+-- ==========================================
+
+-- Required for sorting + cursor pagination
 CREATE INDEX IF NOT EXISTS idx_logs_timestamp_desc
     ON logs (timestamp DESC, id DESC);
 
--- Attribute + service + level filtering
+-- Service filtering
+CREATE INDEX IF NOT EXISTS idx_logs_service
+    ON logs (service);
+
+-- Level filtering
+CREATE INDEX IF NOT EXISTS idx_logs_level
+    ON logs (level);
+
+-- Attribute + service + level + time filtering
 CREATE INDEX IF NOT EXISTS idx_logs_user_service_level_time
     ON logs (
         (attributes->>'user_id'),
@@ -36,6 +48,10 @@ CREATE INDEX IF NOT EXISTS idx_logs_user_service_level_time
 CREATE INDEX IF NOT EXISTS idx_logs_message_trgm
     ON logs USING GIN (message gin_trgm_ops);
 
+
+-- ==========================================
+-- Rollups
+-- ==========================================
 
 CREATE TABLE IF NOT EXISTS log_rollups (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

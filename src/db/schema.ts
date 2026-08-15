@@ -41,17 +41,32 @@ export const logs = pgTable(
   },
 
   (table) => ({
-    // Required for sorting + cursor pagination
+    // Sorting + cursor pagination
     timestampIdx: index("idx_logs_timestamp_desc")
       .on(table.timestamp.desc(), table.id.desc()),
 
-    // Required for service filtering
+    // Service filtering
     serviceIdx: index("idx_logs_service")
       .on(table.service),
 
-    // Required for level filtering
+    // Level filtering
     levelIdx: index("idx_logs_level")
       .on(table.level),
+
+    // Attribute + service + level + time filtering
+    userServiceLevelTimeIdx: index(
+      "idx_logs_user_service_level_time"
+    ).on(
+      table.attributes,
+      table.service,
+      table.level,
+      table.timestamp.desc(),
+      table.id.desc()
+    ),
+
+    // Message substring search
+    messageTrgmIdx: index("idx_logs_message_trgm")
+      .using("gin", table.message),
   })
 );
 
