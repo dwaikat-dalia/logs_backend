@@ -8,74 +8,81 @@ import {
   index,
   integer,
   uniqueIndex,
-} from 'drizzle-orm/pg-core';
-export const logs = pgTable(
-  'logs',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
+} from "drizzle-orm/pg-core";
 
-    timestamp: timestamp('timestamp', {
+export const logs = pgTable(
+  "logs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+
+    timestamp: timestamp("timestamp", {
       withTimezone: true,
     }).notNull(),
 
-    level: varchar('level', {
+    level: varchar("level", {
       length: 10,
     }).notNull(),
 
-    service: varchar('service', {
+    service: varchar("service", {
       length: 255,
     }).notNull(),
 
-    message: text('message').notNull(),
+    message: text("message").notNull(),
 
-    attributes: jsonb('attributes')
+    attributes: jsonb("attributes")
       .default({})
       .notNull(),
 
-    createdAt: timestamp('created_at', {
+    createdAt: timestamp("created_at", {
       withTimezone: true,
-    }).defaultNow().notNull(),
+    })
+      .defaultNow()
+      .notNull(),
   },
 
   (table) => ({
-    timestampIdx: index('idx_logs_timestamp_desc')
+    // Required for sorting + cursor pagination
+    timestampIdx: index("idx_logs_timestamp_desc")
       .on(table.timestamp.desc(), table.id.desc()),
 
-    serviceIdx: index('idx_logs_service')
+    // Required for service filtering
+    serviceIdx: index("idx_logs_service")
       .on(table.service),
 
-    levelIdx: index('idx_logs_level')
+    // Required for level filtering
+    levelIdx: index("idx_logs_level")
       .on(table.level),
   })
 );
 
 export const logRollups = pgTable(
-  'log_rollups',
+  "log_rollups",
   {
-    id: uuid('id').primaryKey().defaultRandom(),
+    id: uuid("id").primaryKey().defaultRandom(),
 
-    bucketStart: timestamp('bucket_start', {
+    bucketStart: timestamp("bucket_start", {
       withTimezone: true,
     }).notNull(),
 
-    service: varchar('service', {
+    service: varchar("service", {
       length: 255,
     }),
 
-    level: varchar('level', {
+    level: varchar("level", {
       length: 10,
     }),
 
-    count: integer('count')
+    count: integer("count")
       .notNull()
       .default(0),
   },
+
   (table) => ({
-    bucketIdx: index('idx_log_rollups_bucket')
+    bucketIdx: index("idx_log_rollups_bucket")
       .on(table.bucketStart),
 
     uniqueBucket: uniqueIndex(
-      'uq_log_rollups_bucket_service_level'
+      "uq_log_rollups_bucket_service_level"
     ).on(
       table.bucketStart,
       table.service,

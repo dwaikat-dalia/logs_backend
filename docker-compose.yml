@@ -4,19 +4,14 @@ services:
   postgres:
     image: postgres:15-alpine
 
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: logs_db
-
     command:
       - postgres
       - -c
       - synchronous_commit=off
       - -c
-      - fsync=off
+      - fsync=on
       - -c
-      - full_page_writes=off
+      - full_page_writes=on
       - -c
       - shared_buffers=256MB
       - -c
@@ -27,6 +22,13 @@ services:
       - max_connections=20
       - -c
       - random_page_cost=1.1
+      - -c
+      - max_wal_size=2GB
+
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: logs_db
 
     ports:
       - "5432:5432"
