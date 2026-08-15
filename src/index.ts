@@ -42,10 +42,10 @@ async function startServer() {
   // Build rollups immediately after the server starts
   await refreshRollups();
 
-  // Refresh rollups every 5 seconds
+  // Refresh rollups every 20 seconds
   setInterval(() => {
     void refreshRollups();
-  }, 10000);
+  }, 20000);
 
   // Retention cleanup
   setInterval(async () => {

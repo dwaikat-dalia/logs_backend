@@ -10,6 +10,8 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
+import { sql } from "drizzle-orm";
+
 export const logs = pgTable(
   "logs",
   {
@@ -43,30 +45,28 @@ export const logs = pgTable(
   (table) => ({
     // Sorting + cursor pagination
     timestampIdx: index("idx_logs_timestamp_desc")
-      .on(table.timestamp.desc(), table.id.desc()),
-
-    // Service filtering
-    serviceIdx: index("idx_logs_service")
-      .on(table.service),
-
-    // Level filtering
-    levelIdx: index("idx_logs_level")
-      .on(table.level),
+      .on(
+        table.timestamp.desc(),
+        table.id.desc()
+      ),
 
     // Attribute + service + level + time filtering
     userServiceLevelTimeIdx: index(
       "idx_logs_user_service_level_time"
     ).on(
-      table.attributes,
+      sql`(${table.attributes}->>'user_id')`,
       table.service,
       table.level,
       table.timestamp.desc(),
       table.id.desc()
     ),
 
-    // Message substring search
-    messageTrgmIdx: index("idx_logs_message_trgm")
-      .using("gin", table.message),
+    // Case-insensitive substring search
+    messageTrgmIdx: index(
+      "idx_logs_message_trgm"
+    )
+      .using("gin", table.message)
+      .with({ gin_trgm_ops: "gin_trgm_ops" }),
   })
 );
 

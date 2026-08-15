@@ -22,17 +22,9 @@ CREATE TABLE IF NOT EXISTS logs (
 -- Logs indexes
 -- ==========================================
 
--- Required for sorting + cursor pagination
+-- Sorting + cursor pagination
 CREATE INDEX IF NOT EXISTS idx_logs_timestamp_desc
     ON logs (timestamp DESC, id DESC);
-
--- Service filtering
-CREATE INDEX IF NOT EXISTS idx_logs_service
-    ON logs (service);
-
--- Level filtering
-CREATE INDEX IF NOT EXISTS idx_logs_level
-    ON logs (level);
 
 -- Attribute + service + level + time filtering
 CREATE INDEX IF NOT EXISTS idx_logs_user_service_level_time
@@ -44,7 +36,7 @@ CREATE INDEX IF NOT EXISTS idx_logs_user_service_level_time
         id DESC
     );
 
--- Case-insensitive substring search on message
+-- Case-insensitive substring search
 CREATE INDEX IF NOT EXISTS idx_logs_message_trgm
     ON logs USING GIN (message gin_trgm_ops);
 
