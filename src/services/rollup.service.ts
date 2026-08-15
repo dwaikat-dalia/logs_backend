@@ -16,7 +16,8 @@ export async function refreshRollups(): Promise<void> {
         level,
         count(*) AS count
       FROM logs
-      WHERE timestamp >= date_trunc('hour', NOW() - INTERVAL '24 hours')
+      WHERE timestamp >= date_trunc('hour', NOW())
+        AND timestamp < date_trunc('hour', NOW()) + INTERVAL '1 hour'
       GROUP BY
         date_trunc('hour', timestamp),
         service,
@@ -30,7 +31,7 @@ export async function refreshRollups(): Promise<void> {
         count = EXCLUDED.count;
     `);
 
-    console.log('Rollups refreshed successfully.');
+    console.log('Current-hour rollups refreshed successfully.');
   } catch (error) {
     console.error('Failed to refresh rollups:', error);
   }
