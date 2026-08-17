@@ -2,14 +2,10 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
   pull_request:
-    branches:
-      - main
 
 jobs:
-  build-and-test:
+  test:
     runs-on: ubuntu-latest
 
     steps:
@@ -19,7 +15,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
@@ -27,3 +23,13 @@ jobs:
 
       - name: Build TypeScript
         run: npm run build
+
+      - name: Start Docker services
+        run: docker compose up -d --build
+
+      - name: Run tests
+        run: npm test
+
+      - name: Stop Docker services
+        if: always()
+        run: docker compose down -v
