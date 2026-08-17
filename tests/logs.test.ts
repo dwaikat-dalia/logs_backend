@@ -121,18 +121,39 @@ test("GET /logs searches messages with q", async () => {
   }
 });
 test("GET /logs supports cursor pagination", async () => {
+  const logs = Array.from({ length: 5 }, (_, i) => ({
+    timestamp: new Date().toISOString(),
+    level: "info",
+    service: "cursor-test",
+    message: `cursor pagination test ${i}`,
+    attributes: {
+      index: i,
+    },
+  }));
+
+  const insertResponse = await fetch(`${BASE_URL}/logs`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ logs }),
+  });
+
+  assert.strictEqual(insertResponse.status, 200);
+
   const firstResponse = await fetch(
-    `${BASE_URL}/logs?limit=3`
+    `${BASE_URL}/logs?limit=3&service=cursor-test`
   );
 
   const firstBody = await firstResponse.json();
 
   assert.strictEqual(firstResponse.status, 200);
   assert.ok(Array.isArray(firstBody.logs));
+  assert.strictEqual(firstBody.logs.length, 3);
   assert.ok(firstBody.next_cursor);
 
   const secondResponse = await fetch(
-    `${BASE_URL}/logs?limit=3&cursor=${encodeURIComponent(
+    `${BASE_URL}/logs?limit=3&service=cursor-test&cursor=${encodeURIComponent(
       firstBody.next_cursor
     )}`
   );
