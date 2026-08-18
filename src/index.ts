@@ -1,13 +1,20 @@
 import express, { Request, Response } from 'express';
-import dotenv from 'dotenv';
+import cors from "cors";
 import { connectDB, db } from './db/database';
 import logsRouter from './routes/logs';
 import { sql } from 'drizzle-orm';
 import { refreshRollups } from './services/rollup.service';
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 8080;
+const RETENTION_DAYS = Number(process.env.RETENTION_DAYS || 30);
+
+app.use(cors({
+  origin: [
+    "http://localhost:5173",
+    "http://localhost:5174",
+  ],
+}));
 
 app.use(express.json({ limit: '10mb' }));
 
@@ -30,8 +37,38 @@ app.get('/health', async (req: Request, res: Response) => {
   }
 });
 
+// Dashboard statistics
+app.get('/stats', async (req: Request, res: Response) => {
+  try {
+    const result = await db.execute(sql`
+      SELECT
+        COUNT(*)::int AS "totalLogs",
+        COUNT(*) FILTER (
+          WHERE level = 'error'
+        )::int AS errors,
+        COUNT(DISTINCT service)::int AS services
+      FROM logs
+    `);
+
+    const stats = result.rows[0];
+
+    res.status(200).json({
+      totalLogs: stats?.totalLogs ?? 0,
+      errors: stats?.errors ?? 0,
+      services: stats?.services ?? 0,
+    });
+  } catch (err) {
+    res.status(500).json({
+      error: err instanceof Error
+        ? err.message
+        : 'Failed to load statistics',
+    });
+  }
+});
+
 // Logs
 app.use('/logs', logsRouter);
+
 async function startServer() {
   await connectDB();
 
@@ -55,7 +92,7 @@ async function startServer() {
         WHERE id IN (
           SELECT id
           FROM logs
-          WHERE timestamp < NOW() - INTERVAL '30 days'
+          WHERE timestamp < NOW() - (${RETENTION_DAYS} * INTERVAL '1 day')
           LIMIT 10000
         )
       `);

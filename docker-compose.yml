@@ -57,6 +57,7 @@ services:
       PORT: 8080
       DATABASE_URL: postgres://postgres:password@postgres:5432/logs_db
       AUTH_ENABLED: "false"
+      RETENTION_DAYS: "30"
 
     depends_on:
       postgres:

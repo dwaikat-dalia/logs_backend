@@ -16,9 +16,9 @@ export async function refreshRollups(): Promise<void> {
         level,
         count(*) AS count
       FROM logs
-      WHERE timestamp >= date_trunc('hour', NOW())
-        AND timestamp < date_trunc('hour', NOW()) + INTERVAL '1 hour'
-      GROUP BY
+      WHERE timestamp >= date_trunc('hour', NOW()) - INTERVAL '1 hour'
+  AND timestamp < date_trunc('hour', NOW()) + INTERVAL '1 hour'
+   GROUP BY
         date_trunc('hour', timestamp),
         service,
         level

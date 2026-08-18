@@ -3,6 +3,9 @@ interface CursorPayload {
   id: string;
 }
 
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export function encodeCursor(payload: CursorPayload): string {
   return Buffer.from(JSON.stringify(payload)).toString('base64url');
 }
@@ -17,6 +20,10 @@ export function decodeCursor(cursor: string): CursorPayload {
       typeof payload.id !== 'string'
     ) {
       throw new Error('Invalid cursor');
+    }
+
+    if (!UUID_REGEX.test(payload.id)) {
+      throw new Error('Invalid cursor UUID');
     }
 
     const date = new Date(payload.timestamp);

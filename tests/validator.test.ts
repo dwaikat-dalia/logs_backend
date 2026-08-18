@@ -40,6 +40,38 @@ describe("validateLogEntry", () => {
     );
   });
 
+it("rejects timestamp without timezone", () => {
+  const log = {
+    ...validLog,
+    timestamp: "2026-07-20T14:32:01.123",
+  };
+
+  assert.match(
+    validateLogEntry(log) ?? "",
+    /ISO 8601/
+  );
+});
+
+it("rejects date-only timestamp", () => {
+  const log = {
+    ...validLog,
+    timestamp: "2026-07-20",
+  };
+
+  assert.match(
+    validateLogEntry(log) ?? "",
+    /ISO 8601/
+  );
+});
+
+it("accepts ISO 8601 timestamp with timezone offset", () => {
+  const log = {
+    ...validLog,
+    timestamp: "2026-07-20T14:32:01.123+03:00",
+  };
+
+  assert.equal(validateLogEntry(log), null);
+});
   it("rejects a timestamp more than five minutes in the future", () => {
     const future = new Date(
       Date.now() + 6 * 60 * 1000

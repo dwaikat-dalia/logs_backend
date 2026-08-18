@@ -184,6 +184,24 @@ test("GET /logs rejects an invalid cursor", async () => {
     "Invalid or malformed cursor."
   );
 });
+test("GET /logs rejects cursor with invalid UUID", async () => {
+  const payload = {
+    timestamp: new Date().toISOString(),
+    id: "not-a-uuid",
+  };
+
+  const cursor = Buffer.from(JSON.stringify(payload)).toString("base64url");
+
+  const response = await fetch(
+    `${BASE_URL}/logs?cursor=${encodeURIComponent(cursor)}`
+  );
+
+  assert.equal(response.status, 400);
+
+  const body = await response.json();
+
+  assert.equal(body.error, "Invalid or malformed cursor.");
+});
 test("GET /logs rejects an invalid limit", async () => {
   const response = await fetch(
     `${BASE_URL}/logs?limit=0`

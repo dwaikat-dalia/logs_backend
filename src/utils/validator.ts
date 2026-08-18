@@ -8,10 +8,18 @@ export function validateLogEntry(entry: any): string | null {
   if (typeof entry.timestamp !== 'string') {
     return 'timestamp is required and must be a string';
   }
-  const timeMs = Date.parse(entry.timestamp);
-  if (Number.isNaN(timeMs)) {
-    return 'timestamp must be a valid ISO 8601 timestamp';
-  }
+  const iso8601Regex =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
+
+if (!iso8601Regex.test(entry.timestamp)) {
+  return 'timestamp must be a valid ISO 8601 timestamp';
+}
+
+const timeMs = Date.parse(entry.timestamp);
+
+if (Number.isNaN(timeMs)) {
+  return 'timestamp must be a valid ISO 8601 timestamp';
+}
   
   if (timeMs > Date.now() + 300000) {
     return 'timestamp must not be more than five minutes in the future';
