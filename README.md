@@ -895,12 +895,11 @@ WHERE id IN (
 Batch deletion reduces the amount of work performed by a single cleanup operation and helps minimize the impact of retention maintenance on ingestion and query workloads.
 
 ---
-
-# Performance Results
+## Performance Results
 
 Performance was measured using the project's local load-testing script against the Dockerized application and PostgreSQL setup.
 
-## Ingestion Benchmark
+### Ingestion Benchmark
 
 | Metric | Result |
 |---|---:|
@@ -909,11 +908,11 @@ Performance was measured using the project's local load-testing script against t
 | Concurrency | 1 |
 | Successful logs | 100,000 |
 | Failed batches | 0 |
-| Total time | 8.64 seconds |
-| Throughput | 11,568 logs/sec |
-| Average request latency | 166.73 ms |
-| Minimum request latency | 105.54 ms |
-| Maximum request latency | 302.32 ms |
+| Total time | 9.41 seconds |
+| Throughput | 10,624 logs/sec |
+| Average request latency | 181.57 ms |
+| Minimum request latency | 102.20 ms |
+| Maximum request latency | 938.31 ms |
 
 The test completed with **0 failed batches**, meaning all 100,000 submitted logs were successfully accepted.
 
@@ -966,41 +965,43 @@ No failed ingestion batches were observed during this run.
 
 # Performance with a Large Dataset
 
-The ingestion service was also tested against a PostgreSQL database containing a large existing dataset.
+The service was also evaluated using the project's official benchmark CLI with a large PostgreSQL dataset.
 
-This test was performed to verify that ingestion continued to operate correctly when the database already contained a substantial number of log records, matching the project's requirement to handle approximately one million stored logs.
+The benchmark seeded:
 
-During the test:
+- **1,000,000 fixture rows**
 
-- Batch size: **2,000 logs**
-- Concurrency: **1**
-- Additional logs ingested: **100,000**
-- Failed batches: **0**
-- Throughput: **11,568 logs/sec**
+The benchmark then executed the correctness, load, stress, spike, and breakpoint scenarios.
 
-After the ingestion test, the total number of records stored in PostgreSQL was verified directly using:
-
-```sql
-SELECT count(*) FROM logs;
-```
-
-The database returned:
+The benchmark completed all correctness checks successfully:
 
 ```text
-count
--------
-1800021
-```
+Correctness: 15/15
+Reliability: 4/4 scenarios
+The measured performance results were:
 
-Therefore, the database contained:
+Throughput: 2,113 logs/sec
+Errors: 28.2%
+p95: 5,559 ms
+Aggregate p95: 7,471 ms
 
-**1,800,021 log records**
+However, these performance numbers are directional rather than representative of the service's maximum performance, because the benchmark reported that the k6 load generator itself was CPU-constrained.
 
-after the test.
+The benchmark reported:
 
-This confirmed that the ingestion pipeline continued to operate successfully with a large existing dataset rather than an empty database.
+machine speed: 0.21x reference
 
----
+and warned that the generator could not start all scheduled iterations for the load, stress, spike, and breakpoint scenarios.
+
+The benchmark was executed with:
+
+Application: 0.5 CPU / 256 MB
+PostgreSQL: 1 CPU / 1 GB
+Generator: 4 CPUs
+Docker Engine: 8 CPUs / 8 GiB
+
+Therefore, the official benchmark result should be interpreted together with the generator limitation and machine-speed warning.
+
 
 # Performance Target
 
