@@ -1292,3 +1292,47 @@ The large-dataset verification test confirmed that the service continued to inge
 ```
 
 after the test.
+
+## Local Load Test Results
+
+The ingestion service was tested locally by running multiple consecutive load tests of **100,000 logs per run** without clearing the database between runs.
+
+This allowed us to observe how ingestion performance behaves as the database grows from **0 to 1,000,000 stored logs**.
+
+### Test Configuration
+
+* **Total logs per run:** 100,000
+* **Batch size:** 2,000 logs
+* **Concurrency:** 1
+* **Failed batches:** 0 in every run
+* **Database was not cleared between runs**
+* **Final database size:** 1,000,000 logs
+
+### Results
+
+| Run | Logs Before | Logs Added | Total Logs | Throughput (logs/s) | Avg Latency (ms) | Max Latency (ms) | Total Time (s) |
+| --: | ----------: | ---------: | ---------: | ------------------: | ---------------: | ---------------: | -------------: |
+|   1 |           0 |    100,000 |    100,000 |          **14,570** |           131.63 |           274.63 |           6.86 |
+|   2 |     100,000 |    100,000 |    200,000 |          **14,025** |           137.14 |           276.63 |           7.13 |
+|   3 |     200,000 |    100,000 |    300,000 |          **13,450** |           143.19 |           275.78 |           7.43 |
+|   4 |     300,000 |    100,000 |    400,000 |          **14,434** |           133.20 |           226.89 |           6.93 |
+|   5 |     400,000 |    100,000 |    500,000 |          **13,717** |           140.18 |           242.30 |           7.29 |
+|   6 |     500,000 |    100,000 |    600,000 |          **13,364** |           143.38 |           343.97 |           7.48 |
+|   7 |     600,000 |    100,000 |    700,000 |          **12,593** |           152.94 |           287.26 |           7.94 |
+|   8 |     700,000 |    100,000 |    800,000 |          **12,436** |           155.28 |           483.47 |           8.04 |
+|   9 |     800,000 |    100,000 |    900,000 |          **13,391** |           143.83 |           280.16 |           7.47 |
+|  10 |     900,000 |    100,000 |  1,000,000 |          **10,117** |           191.43 |           884.15 |           9.88 |
+
+### Summary
+
+* **Best throughput:** 14,570 logs/s
+* **Throughput at 1,000,000 stored logs:** 10,117 logs/s
+* **Average latency at 1,000,000 stored logs:** 191.43 ms
+* **Failed batches:** 0 / 50
+* **Logs successfully ingested:** 1,000,000
+* **Maximum observed latency:** 884.15 ms
+
+The results show that the service successfully ingested **1 million logs without any failed batches**. Throughput remained above **10,000 logs/s** throughout the test, although performance gradually decreased as the database size increased.
+
+> **Note:** These are local development results. They are not directly comparable to the Foothill benchmark results because the benchmark enforces specific CPU and memory limits on the application, PostgreSQL, and load generator.
+
