@@ -71,10 +71,8 @@ async function startServer() {
     console.log(`Server is running on port ${PORT}`);
   });
 
-  // Build rollups immediately after the server starts
-  await refreshRollups();
-
-  // Refresh rollups every 20 seconds
+  // Refresh rollups in the background every 20 seconds.
+  // Rollups do not block ingestion or server startup.
   setInterval(() => {
     void refreshRollups();
   }, 20000);
@@ -98,7 +96,6 @@ async function startServer() {
     }
   }, 60 * 60 * 1000);
 }
-
 startServer().catch((err) => {
   console.error('Failed to start server:', err);
   process.exit(1);
