@@ -1,7 +1,12 @@
 :root {
   font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", sans-serif;
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
 
   color: #17243a;
   background: #f7f9fc;
@@ -13,6 +18,11 @@
   box-sizing: border-box;
 }
 
+html {
+  min-width: 320px;
+  background: #f7f9fc;
+}
+
 body {
   margin: 0;
   min-width: 320px;
@@ -20,9 +30,24 @@ body {
   background: #f7f9fc;
 }
 
-button {
+button,
+input,
+select {
   font: inherit;
 }
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* =========================================================
+   APP
+========================================================= */
 
 .app {
   min-height: 100vh;
@@ -30,62 +55,73 @@ button {
   background: #f7f9fc;
 }
 
-/* SIDEBAR */
+/* =========================================================
+   SIDEBAR
+========================================================= */
 
 .sidebar {
   width: 245px;
   min-height: 100vh;
-  background: #102a56;
-  color: white;
-  display: flex;
-  flex-direction: column;
-  padding: 28px 20px;
+
   position: fixed;
   left: 0;
   top: 0;
   bottom: 0;
+  z-index: 10;
+
+  display: flex;
+  flex-direction: column;
+
+  padding: 28px 20px;
+
+  background: #102a56;
+  color: white;
 }
 
 .brand {
   display: flex;
   align-items: center;
   gap: 12px;
+
   padding: 4px 8px 42px;
 }
 
 .brand-mark {
   width: 42px;
   height: 42px;
-  border-radius: 12px;
-  background: #d8b35a;
-  color: #102a56;
+
   display: grid;
   place-items: center;
-  font-weight: 900;
+
+  border-radius: 12px;
+
+  background: #d8b35a;
+  color: #102a56;
+
   font-size: 20px;
+  font-weight: 900;
 }
 
 .brand h1 {
   margin: 0;
+
+  color: white;
+
   font-size: 16px;
-  letter-spacing: 2px;
   font-weight: 800;
+
+  letter-spacing: 2px;
 }
 
 .brand span {
   display: block;
+
   margin-top: 4px;
+
+  color: #aebdd3;
+
   font-size: 8px;
   letter-spacing: 1.5px;
-  color: #aebdd3;
-}
-
-.nav-label {
-  margin: 0 10px 12px;
-  font-size: 9px;
-  letter-spacing: 1.8px;
-  color: #8397b7;
-  font-weight: 700;
 }
 
 .navigation {
@@ -94,24 +130,44 @@ button {
   gap: 7px;
 }
 
+.nav-label {
+  margin: 0 10px 12px;
+
+  color: #8397b7;
+
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.8px;
+}
+
 .nav-item {
+  width: 100%;
+
   border: 0;
+  border-radius: 10px;
+
   background: transparent;
   color: #bdc9dc;
+
   padding: 13px 12px;
-  border-radius: 10px;
+
   text-align: left;
+
   display: flex;
   align-items: center;
   gap: 13px;
-  cursor: pointer;
-  transition: 0.2s ease;
+
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
 }
 
 .nav-item span {
   width: 24px;
-  font-size: 10px;
+
   color: #8094b3;
+
+  font-size: 10px;
 }
 
 .nav-item:hover {
@@ -120,8 +176,9 @@ button {
 }
 
 .nav-item.active {
-  background: #ffffff;
+  background: white;
   color: #102a56;
+
   font-weight: 700;
 }
 
@@ -138,7 +195,9 @@ button {
   display: flex;
   align-items: center;
   gap: 10px;
+
   padding: 13px;
+
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
 }
@@ -147,80 +206,109 @@ button {
 .live-dot {
   width: 8px;
   height: 8px;
-  border-radius: 50%;
-  background: #49b982;
+
   flex: 0 0 auto;
+
+  border-radius: 50%;
+
+  background: #49b982;
 }
 
 .connection strong {
   display: block;
+
+  color: white;
+
   font-size: 10px;
   letter-spacing: 1px;
 }
 
 .connection small {
   display: block;
+
   margin-top: 3px;
+
   color: #8397b7;
+
   font-size: 10px;
 }
 
-/* MAIN */
+/* =========================================================
+   MAIN
+========================================================= */
 
 .main {
-  margin-left: 245px;
   width: calc(100% - 245px);
   min-height: 100vh;
+
+  margin-left: 245px;
 }
 
 .topbar {
   height: 92px;
+
   padding: 0 42px;
-  background: white;
-  border-bottom: 1px solid #e7ebf2;
+
   display: flex;
   align-items: center;
   justify-content: space-between;
+
+  background: white;
+
+  border-bottom: 1px solid #e7ebf2;
 }
 
 .eyebrow,
 .welcome p,
 .panel-header > div > span {
   margin: 0;
+
   color: #8a98ab;
+
   font-size: 9px;
-  letter-spacing: 1.8px;
   font-weight: 800;
+  letter-spacing: 1.8px;
 }
 
 .topbar h2 {
   margin: 5px 0 0;
+
   color: #102a56;
+
   font-size: 24px;
+  font-weight: 750;
 }
 
 .topbar-status {
   display: flex;
   align-items: center;
   gap: 8px;
+
   color: #65748a;
+
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 1px;
 }
 
 .content {
-  padding: 34px 42px 50px;
+  width: 100%;
   max-width: 1450px;
+
   margin: auto;
+
+  padding: 34px 42px 50px;
 }
 
-/* WELCOME */
+/* =========================================================
+   WELCOME / PAGE HEADER
+========================================================= */
 
 .welcome {
   display: flex;
   align-items: center;
   justify-content: space-between;
+
   margin-bottom: 24px;
 }
 
@@ -232,42 +320,55 @@ button {
 
 .section-number {
   color: #c49a3b;
+
   font-size: 12px;
   font-weight: 900;
 }
 
 .welcome h3 {
   margin: 5px 0 0;
-  font-size: 24px;
+
   color: #17243a;
+
+  font-size: 24px;
   font-weight: 650;
 }
 
 .gold-line {
   width: 100px;
   height: 3px;
-  background: #d8b35a;
+
   border-radius: 4px;
+
+  background: #d8b35a;
 }
 
-/* METRICS */
+/* =========================================================
+   METRICS
+========================================================= */
 
 .metrics {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 16px;
+
   margin-bottom: 18px;
 }
 
 .metric-card {
-  background: white;
-  border: 1px solid #e5eaf1;
-  border-radius: 14px;
-  padding: 22px 24px;
   min-height: 150px;
+
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+
+  padding: 22px 24px;
+
+  background: white;
+
+  border: 1px solid #e5eaf1;
+  border-radius: 14px;
+
   box-shadow: 0 5px 20px rgba(16, 42, 86, 0.035);
 }
 
@@ -277,13 +378,15 @@ button {
 
 .metric-card span {
   color: #8795a8;
+
   font-size: 9px;
-  letter-spacing: 1.5px;
   font-weight: 800;
+  letter-spacing: 1.5px;
 }
 
 .metric-card strong {
   color: #102a56;
+
   font-size: 34px;
   font-weight: 750;
   line-height: 1;
@@ -291,28 +394,35 @@ button {
 
 .metric-card small {
   color: #98a4b3;
+
   font-size: 11px;
 }
 
-/* PANELS */
+/* =========================================================
+   PANELS
+========================================================= */
+
+.panel {
+  background: white;
+
+  border: 1px solid #e5eaf1;
+  border-radius: 14px;
+
+  box-shadow: 0 5px 20px rgba(16, 42, 86, 0.035);
+}
 
 .workspace-grid {
   display: grid;
   grid-template-columns: 1.65fr 1fr;
   gap: 18px;
-  margin-bottom: 18px;
-}
 
-.panel {
-  background: white;
-  border: 1px solid #e5eaf1;
-  border-radius: 14px;
-  box-shadow: 0 5px 20px rgba(16, 42, 86, 0.035);
+  margin-bottom: 18px;
 }
 
 .activity-panel,
 .health-panel {
   min-height: 290px;
+
   padding: 24px;
 }
 
@@ -320,66 +430,136 @@ button {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+
   gap: 20px;
 }
 
 .panel-header h3 {
   margin: 6px 0 0;
-  font-size: 18px;
+
   color: #17243a;
+
+  font-size: 18px;
+  font-weight: 700;
 }
 
 .api-badge {
   padding: 7px 10px;
+
   background: #f3f6fa;
+
   border-radius: 7px;
+
   color: #718198;
+
   font-size: 10px;
   font-family: monospace;
 }
 
+/* =========================================================
+   ACTIVITY GRAPH
+========================================================= */
+
 .activity-visual {
-  margin-top: 38px;
+  width: 100%;
+  height: 220px;
+
+  margin-top: 30px;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
 }
 
 .activity-bars {
-  height: 150px;
+  width: 100%;
+  height: 175px;
+
   display: flex;
-  align-items: end;
-  gap: 7px;
+  align-items: flex-end;
+  justify-content: space-between;
+
+  gap: 6px;
+
   padding: 0 5px;
+
   border-bottom: 1px solid #e9edf3;
+
+  overflow: hidden;
 }
 
-.activity-bars span {
+.activity-bar-wrapper {
   flex: 1;
-  max-width: 24px;
-  margin: 0 auto;
-  border-radius: 5px 5px 0 0;
-  background: #1e4c8d;
-  opacity: 0.8;
+
+  height: 100%;
+  min-width: 4px;
+
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
 }
 
-.activity-bars span:nth-child(4n) {
-  background: #d8b35a;
+.activity-bar {
+  display: block;
+
+  width: 100%;
+
+  min-height: 4px;
+
+  border-radius: 4px 4px 0 0;
+
+  background: #c9a86a;
+
+  transition:
+    height 0.3s ease,
+    opacity 0.3s ease;
+}
+
+.activity-bar:hover {
+  opacity: 0.7;
+}
+
+.activity-empty {
+  width: 100%;
+  height: 100%;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  color: #8795a8;
+
+  font-size: 12px;
+
+  opacity: 0.7;
 }
 
 .activity-footer {
+  width: 100%;
+
   display: flex;
   justify-content: space-between;
-  margin-top: 9px;
+
+  margin-top: 10px;
+
   color: #a0abba;
+
   font-size: 8px;
   letter-spacing: 1px;
 }
 
-/* HEALTH */
+/* =========================================================
+   HEALTH
+========================================================= */
 
 .healthy-badge {
-  color: #3d9a6c;
-  background: #edf8f2;
   padding: 6px 9px;
+
   border-radius: 20px;
+
+  background: #edf8f2;
+  color: #3d9a6c;
+
   font-size: 8px;
   font-weight: 900;
   letter-spacing: 1px;
@@ -387,20 +567,29 @@ button {
 
 .health-content {
   margin-top: 32px;
+
   display: flex;
   align-items: center;
+
   gap: 30px;
 }
 
 .health-score {
   width: 105px;
   height: 105px;
-  border: 8px solid #dcefe5;
-  border-top-color: #49a879;
-  border-radius: 50%;
+
+  flex: 0 0 auto;
+
   display: grid;
   place-items: center;
+
+  border: 8px solid #dcefe5;
+  border-top-color: #49a879;
+
+  border-radius: 50%;
+
   color: #32845f;
+
   font-size: 22px;
   font-weight: 800;
 }
@@ -414,10 +603,14 @@ button {
   grid-template-columns: 10px 1fr auto;
   align-items: center;
   gap: 9px;
+
   padding: 11px 0;
+
   border-bottom: 1px solid #edf0f4;
-  font-size: 11px;
+
   color: #536177;
+
+  font-size: 11px;
 }
 
 .health-items div:last-child {
@@ -426,52 +619,84 @@ button {
 
 .health-items strong {
   color: #58a078;
+
   font-size: 8px;
   letter-spacing: 0.8px;
 }
 
-/* LOGS */
+/* =========================================================
+   LOG PANELS
+========================================================= */
 
 .logs-panel {
+  width: 100%;
+
   padding: 24px;
+
+  overflow: hidden;
 }
 
 .logs-header {
   margin-bottom: 20px;
 }
 
+.logs-header h3 {
+  font-size: 18px;
+}
+
 .log-count {
   padding: 7px 10px;
+
+  border-radius: 6px;
+
   background: #102a56;
   color: white;
-  border-radius: 6px;
+
   font-size: 8px;
   font-weight: 800;
   letter-spacing: 1px;
 }
 
+/* =========================================================
+   LOG TABLE
+========================================================= */
+
+.log-table {
+  width: 100%;
+  overflow-x: auto;
+}
+
 .log-table-head,
 .log-row {
   display: grid;
-  grid-template-columns: 145px 90px 150px 1fr;
+  grid-template-columns: 170px 100px 170px minmax(250px, 1fr);
   align-items: center;
-  gap: 15px;
+
+  gap: 20px;
+
+  min-width: 760px;
 }
 
 .log-table-head {
-  padding: 10px 14px;
+  padding: 12px 14px;
+
   background: #f7f9fc;
-  color: #9aa6b5;
-  font-size: 8px;
-  letter-spacing: 1.2px;
-  font-weight: 800;
+
   border-radius: 7px;
+
+  color: #9aa6b5;
+
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
 }
 
 .log-row {
+  min-height: 62px;
+
   padding: 14px;
+
   border-bottom: 1px solid #edf0f4;
-  min-height: 55px;
 }
 
 .log-row:last-child {
@@ -480,17 +705,57 @@ button {
 
 .log-row time {
   color: #78869a;
-  font-size: 10px;
+
+  font-size: 11px;
   font-family: monospace;
 }
 
+.log-row p {
+  min-width: 0;
+
+  margin: 0;
+
+  color: #68778c;
+
+  font-size: 12px;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.service {
+  min-width: 0;
+
+  color: #263a56;
+
+  font-size: 11px;
+  font-weight: 700;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* =========================================================
+   LEVEL BADGES
+========================================================= */
+
 .level {
   justify-self: start;
-  padding: 5px 7px;
+
+  padding: 5px 8px;
+
   border-radius: 5px;
+
   font-size: 8px;
   font-weight: 900;
   letter-spacing: 0.7px;
+}
+
+.level-debug {
+  color: #667085;
+  background: #f0f2f5;
 }
 
 .level-info {
@@ -508,25 +773,17 @@ button {
   background: #fff0f0;
 }
 
-.service {
-  color: #263a56;
-  font-size: 10px;
-  font-weight: 700;
-}
-
-.log-row p {
-  margin: 0;
-  color: #68778c;
-  font-size: 11px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+/* =========================================================
+   EMPTY / ERROR
+========================================================= */
 
 .empty-state {
   padding: 50px 20px;
+
   text-align: center;
+
   color: #8795a8;
+
   font-size: 12px;
 }
 
@@ -534,16 +791,395 @@ button {
   color: #b64b4b;
 }
 
-/* RESPONSIVE */
+/* =========================================================
+   LOGS PAGE FILTERS
+========================================================= */
 
-@media (max-width: 1050px) {
+.logs-filters {
+  padding: 24px;
+
+  margin-bottom: 18px;
+}
+
+.filters-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 2fr) 1fr 1.2fr 0.7fr;
+
+  gap: 16px;
+
+  margin-top: 25px;
+}
+
+.filter-field {
+  min-width: 0;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 8px;
+}
+
+.filter-field label {
+  color: #8795a8;
+
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 1.3px;
+}
+
+.filter-field input,
+.filter-field select {
+  width: 100%;
+  height: 42px;
+
+  padding: 0 12px;
+
+  border: 1px solid #dfe5ed;
+  border-radius: 8px;
+
+  outline: none;
+
+  background: #fbfcfe;
+  color: #263a56;
+
+  font-size: 11px;
+
+  transition:
+    border 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.filter-field input:focus,
+.filter-field select:focus {
+  border-color: #c9a86a;
+
+  box-shadow: 0 0 0 3px rgba(201, 168, 106, 0.12);
+}
+
+.search-control {
+  display: flex;
+  gap: 8px;
+}
+
+.search-control input {
+  flex: 1;
+}
+
+.search-control button {
+  height: 42px;
+
+  padding: 0 16px;
+
+  border: 0;
+  border-radius: 8px;
+
+  background: #102a56;
+  color: white;
+
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+}
+
+.search-control button:hover {
+  background: #173a70;
+}
+
+.filter-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  margin-top: 18px;
+  padding-top: 16px;
+
+  border-top: 1px solid #edf0f4;
+}
+
+.filter-status {
+  color: #8795a8;
+
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.clear-filters {
+  padding: 8px 12px;
+
+  border: 1px solid #dfe5ed;
+  border-radius: 7px;
+
+  background: white;
+  color: #718198;
+
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.7px;
+}
+
+.clear-filters:hover:not(:disabled) {
+  border-color: #c9a86a;
+  color: #102a56;
+}
+
+/* =========================================================
+   LOGS EXPLORER TABLE
+========================================================= */
+
+.logs-explorer-table .log-table-head,
+.logs-explorer-table .log-row {
+  grid-template-columns:
+    170px
+    90px
+    150px
+    minmax(260px, 1fr)
+    minmax(150px, 220px);
+}
+
+.log-message {
+  min-width: 0;
+}
+
+.log-attributes {
+  display: block;
+
+  min-width: 0;
+
+  color: #718198;
+
+  font-size: 10px;
+  font-family: monospace;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* =========================================================
+   PAGINATION
+========================================================= */
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  margin-top: 18px;
+  padding-top: 18px;
+
+  border-top: 1px solid #edf0f4;
+}
+
+.pagination-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  color: #8795a8;
+
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+}
+
+.pagination-info strong {
+  color: #102a56;
+}
+
+.pagination-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.pagination-actions button {
+  padding: 9px 13px;
+
+  border: 1px solid #dfe5ed;
+  border-radius: 7px;
+
+  background: white;
+  color: #536177;
+
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+
+.pagination-actions button:hover:not(:disabled) {
+  border-color: #c9a86a;
+  color: #102a56;
+}
+
+/* =========================================================
+   ANALYTICS
+========================================================= */
+
+.analytics-page {
+  width: 100%;
+}
+
+.analytics-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+
+  gap: 14px;
+
+  margin-bottom: 18px;
+}
+
+.analytics-card {
+  padding: 22px;
+
+  background: white;
+
+  border: 1px solid #e5eaf1;
+  border-radius: 14px;
+
+  box-shadow: 0 5px 20px rgba(16, 42, 86, 0.035);
+}
+
+.analytics-card-label {
+  color: #8795a8;
+
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 1.4px;
+}
+
+.analytics-card-value {
+  display: block;
+
+  margin-top: 10px;
+
+  color: #102a56;
+
+  font-size: 25px;
+  font-weight: 750;
+}
+
+.analytics-grid {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+
+  gap: 18px;
+}
+
+.analytics-panel {
+  padding: 24px;
+}
+
+.analytics-chart {
+  width: 100%;
+  min-height: 320px;
+
+  margin-top: 25px;
+}
+
+.analytics-bars {
+  height: 260px;
+
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+
+  border-bottom: 1px solid #e9edf3;
+}
+
+.analytics-bar-wrapper {
+  flex: 1;
+  height: 100%;
+
+  display: flex;
+  align-items: flex-end;
+}
+
+.analytics-bar {
+  width: 100%;
+  min-height: 4px;
+
+  border-radius: 5px 5px 0 0;
+
+  background: #1e4c8d;
+}
+
+.analytics-bar:hover {
+  opacity: 0.75;
+}
+
+.analytics-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+
+  margin-top: 15px;
+}
+
+.analytics-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  color: #718198;
+
+  font-size: 9px;
+}
+
+.analytics-legend-dot {
+  width: 7px;
+  height: 7px;
+
+  border-radius: 50%;
+
+  background: #c9a86a;
+}
+
+.analytics-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+
+  margin-top: 25px;
+}
+
+.analytics-summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 14px 0;
+
+  border-bottom: 1px solid #edf0f4;
+}
+
+.analytics-summary-row:last-child {
+  border-bottom: 0;
+}
+
+.analytics-summary-row span {
+  color: #718198;
+
+  font-size: 10px;
+}
+
+.analytics-summary-row strong {
+  color: #102a56;
+
+  font-size: 13px;
+}
+
+/* =========================================================
+   RESPONSIVE — TABLET
+========================================================= */
+
+@media (max-width: 1150px) {
   .sidebar {
     width: 210px;
   }
 
   .main {
-    margin-left: 210px;
     width: calc(100% - 210px);
+    margin-left: 210px;
   }
 
   .content,
@@ -552,30 +1188,40 @@ button {
     padding-right: 25px;
   }
 
-  .workspace-grid {
+  .workspace-grid,
+  .analytics-grid {
     grid-template-columns: 1fr;
   }
 
-  .log-table-head,
-  .log-row {
-    grid-template-columns: 120px 80px 120px 1fr;
+  .filters-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .analytics-controls {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
-@media (max-width: 760px) {
-  .sidebar {
-    position: static;
-    width: 100%;
-    min-height: auto;
-  }
+/* =========================================================
+   RESPONSIVE — MOBILE
+========================================================= */
 
+@media (max-width: 760px) {
   .app {
     display: block;
   }
 
-  .main {
-    margin-left: 0;
+  .sidebar {
+    position: static;
+
     width: 100%;
+    min-height: auto;
+
+    padding: 20px;
+  }
+
+  .brand {
+    padding-bottom: 24px;
   }
 
   .navigation {
@@ -587,174 +1233,354 @@ button {
     display: none;
   }
 
+  .nav-item {
+    justify-content: center;
+    padding: 11px 8px;
+
+    gap: 6px;
+
+    font-size: 11px;
+  }
+
+  .nav-item span {
+    width: auto;
+  }
+
   .sidebar-footer {
     display: none;
+  }
+
+  .main {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .topbar {
+    height: auto;
+
+    padding: 20px;
+
+    gap: 20px;
+  }
+
+  .topbar h2 {
+    font-size: 21px;
+  }
+
+  .content {
+    padding: 25px 18px 40px;
+  }
+
+  .welcome h3 {
+    font-size: 20px;
+  }
+
+  .gold-line {
+    width: 55px;
   }
 
   .metrics {
     grid-template-columns: 1fr;
   }
 
-  .topbar {
-    padding: 20px;
-    height: auto;
+  .workspace-grid,
+  .analytics-grid {
+    grid-template-columns: 1fr;
   }
 
-  .content {
-    padding: 25px 18px;
+  .health-content {
+    align-items: flex-start;
+  }
+
+  .filters-grid,
+  .analytics-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-actions {
+    align-items: flex-start;
+    flex-direction: column;
+
+    gap: 12px;
+  }
+
+  .search-control {
+    flex-direction: column;
+  }
+
+  .search-control button {
+    width: 100%;
+  }
+
+  .log-table {
+    overflow-x: auto;
   }
 
   .log-table-head {
     display: none;
   }
 
-  .log-row {
+  .log-row,
+  .logs-explorer-table .log-row {
     grid-template-columns: 1fr 1fr;
-    gap: 8px;
+
+    min-width: 0;
+
+    gap: 10px;
+
+    padding: 16px 8px;
   }
 
-  .log-row p {
+  .log-row p,
+  .log-message {
     grid-column: 1 / -1;
+
+    white-space: normal;
+
+    line-height: 1.5;
   }
 
   .service {
     justify-self: end;
+
+    text-align: right;
+  }
+
+  .log-attributes {
+    grid-column: 1 / -1;
+
+    white-space: normal;
+  }
+
+  .pagination {
+    align-items: flex-start;
+    flex-direction: column;
+
+    gap: 14px;
+  }
+
+  .pagination-actions {
+    width: 100%;
+  }
+
+  .pagination-actions button {
+    flex: 1;
+  }
+
+  .activity-bars {
+    gap: 3px;
   }
 }
-/* =========================
-   Recent Logs - Larger & Clearer
-   ========================= */
 
-.logs-panel {
-  padding: 28px;
+/* =========================================================
+   SMALL MOBILE
+========================================================= */
+
+@media (max-width: 480px) {
+  .brand {
+    padding-bottom: 20px;
+  }
+
+  .brand-mark {
+    width: 38px;
+    height: 38px;
+  }
+
+  .nav-item {
+    font-size: 10px;
+  }
+
+  .metric-card strong {
+    font-size: 29px;
+  }
+
+  .welcome {
+    align-items: flex-start;
+  }
+
+  .welcome > div:first-child {
+    gap: 10px;
+  }
+
+  .welcome h3 {
+    font-size: 18px;
+  }
+
+  .health-content {
+    flex-direction: column;
+  }
+
+  .health-score {
+    width: 90px;
+    height: 90px;
+  }
+
+  .activity-panel,
+  .health-panel,
+  .logs-panel,
+  .logs-filters,
+  .analytics-panel {
+    padding: 18px;
+  }
 }
 
-.logs-title {
-  margin-bottom: 24px;
+/* =========================================================
+   REAL BACKEND STATUS
+========================================================= */
+
+.connection {
+  transition:
+    border-color 0.25s ease,
+    background 0.25s ease;
 }
 
-.logs-title h3 {
-  font-size: 28px;
-  font-weight: 700;
-  margin-top: 6px;
+.connection-online {
+  border-color: rgba(73, 185, 130, 0.25);
 }
 
-.logs-title p {
-  font-size: 12px;
-  letter-spacing: 2px;
+.connection-offline {
+  border-color: rgba(220, 75, 75, 0.35);
+  background: rgba(220, 75, 75, 0.04);
 }
 
-.log-list {
-  width: 100%;
+
+/* =========================================================
+   STATUS DOTS
+========================================================= */
+
+.status-dot,
+.live-dot {
+  transition:
+    background 0.25s ease,
+    box-shadow 0.25s ease;
 }
 
-.log-row {
-  display: grid;
-  grid-template-columns: 150px 90px 150px 1fr 80px;
-  align-items: center;
-  gap: 20px;
-
-  min-height: 64px;
-  padding: 12px 8px;
-
-  border-bottom: 1px solid rgba(20, 35, 60, 0.08);
+.status-online {
+  background: #49b982 !important;
+  box-shadow: 0 0 0 4px rgba(73, 185, 130, 0.12);
 }
 
-.log-row time {
-  font-size: 15px;
-  font-weight: 600;
+.status-offline {
+  background: #d95353 !important;
+  box-shadow: 0 0 0 4px rgba(217, 83, 83, 0.12);
 }
 
-.log-row p {
-  font-size: 16px;
-  font-weight: 500;
-  margin: 0;
-}
 
-.log-row .service {
-  font-size: 15px;
-  font-weight: 700;
-}
+/* =========================================================
+   SIDEBAR STATUS TEXT
+========================================================= */
 
-.level {
-  font-size: 12px;
-  font-weight: 800;
+.connection em {
+  display: block;
+  margin-top: 4px;
+
+  font-style: normal;
+
+  font-size: 8px;
+  font-weight: 900;
   letter-spacing: 1px;
 
-  padding: 7px 12px;
-  border-radius: 8px;
-
-  text-align: center;
+  transition: color 0.25s ease;
 }
 
-.duration {
-  font-size: 14px;
-  font-weight: 700;
-  text-align: right;
+.connection-online em {
+  color: #49b982;
 }
 
-.stream-status {
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 1px;
-}
-/* Recent Logs table */
-.logs-panel {
-  padding: 28px;
+.connection-offline em {
+  color: #d95353;
 }
 
-.logs-header {
-  margin-bottom: 24px;
+
+/* =========================================================
+   TOPBAR STATUS
+========================================================= */
+
+.topbar-status {
+  transition: color 0.25s ease;
 }
 
-.logs-header h3 {
-  font-size: 28px;
+.topbar-online {
+  color: #3d9368;
 }
 
-.log-table-head {
-  display: grid;
-  grid-template-columns: 170px 100px 170px 1fr;
-  gap: 20px;
-
-  padding: 14px;
-
-  font-size: 14px;
-  font-weight: 800;
-  letter-spacing: 1.8px;
-
-  border-bottom: 2px solid rgba(20, 35, 60, 0.12);
+.topbar-offline {
+  color: #c64c4c;
 }
 
-.log-row {
-  display: grid;
-  grid-template-columns: 170px 100px 170px 1fr;
-  gap: 20px;
-  align-items: center;
 
-  min-height: 64px;
-  padding: 20px;
+/* =========================================================
+   HEALTH BADGE
+========================================================= */
 
-  border-bottom: 1px solid rgba(20, 35, 60, 0.08);
+.healthy-badge {
+  transition:
+    color 0.25s ease,
+    background 0.25s ease;
 }
 
-.log-row time {
-  font-size: 15px;
-  font-weight: 600;
+.health-online {
+  color: #3d9a6c !important;
+  background: #edf8f2 !important;
 }
 
-.log-row .level {
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 1px;
+.health-offline {
+  color: #b64b4b !important;
+  background: #fff0f0 !important;
 }
 
-.log-row .service {
-  font-size: 15px;
-  font-weight: 700;
+
+/* =========================================================
+   HEALTH SCORE
+========================================================= */
+
+.health-score {
+  transition:
+    color 0.25s ease,
+    border-color 0.25s ease;
 }
 
-.log-row p {
-  font-size: 16px;
-  font-weight: 500;
-  margin: 0;
+.health-score-online {
+  color: #32845f;
+  border-color: #dcefe5;
+  border-top-color: #49a879;
+}
+
+.health-score-offline {
+  color: #b64b4b;
+  border-color: #f1dada;
+  border-top-color: #d95353;
+}
+
+
+/* =========================================================
+   HEALTH ITEM STATUS
+========================================================= */
+
+.health-text-online {
+  color: #58a078 !important;
+}
+
+.health-text-offline {
+  color: #c64c4c !important;
+}
+
+
+/* =========================================================
+   OFFLINE PULSE
+========================================================= */
+
+.status-offline {
+  animation: offline-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes offline-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.45;
+  }
 }

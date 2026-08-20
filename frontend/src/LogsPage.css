@@ -1,0 +1,579 @@
+/* =========================================================
+   LOGS PAGE
+========================================================= */
+
+.logs-page {
+  min-width: 0;
+}
+
+/* =========================================================
+   FILTER PANEL
+========================================================= */
+.panel-header{
+    padding: 20px 10px 0px 10px;
+}
+.logs-filters {
+  margin-bottom: 24px;
+}
+
+.filters-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 2fr) 1fr 1fr 0.7fr;
+  gap: 16px;
+  padding: 24px;
+}
+
+.filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.filter-field label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: #777;
+}
+
+.filter-field input,
+.filter-field select {
+  width: 100%;
+  height: 44px;
+  box-sizing: border-box;
+
+  border: 1px solid #d9d5cc;
+  background: #faf9f6;
+
+  padding: 0 13px;
+
+  font-family: inherit;
+  font-size: 13px;
+
+  color: #222;
+
+  outline: none;
+
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease;
+}
+
+.filter-field input:focus,
+.filter-field select:focus {
+  border-color: #b49a5a;
+  background: #fff;
+}
+
+.filter-field input::placeholder {
+  color: #999;
+}
+
+/* =========================================================
+   SEARCH
+========================================================= */
+
+.search-control {
+  display: flex;
+  gap: 8px;
+}
+
+.search-control input {
+  flex: 1;
+  min-width: 0;
+}
+
+.search-control button {
+  height: 44px;
+
+  border: 1px solid #1d1d1b;
+  background: #1d1d1b;
+  color: #fff;
+
+  padding: 0 18px;
+
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
+}
+
+.search-control button:hover {
+  background: #b49a5a;
+  border-color: #b49a5a;
+}
+
+/* =========================================================
+   FILTER ACTIONS
+========================================================= */
+
+.filter-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  border-top: 1px solid #ebe8e0;
+
+  padding: 14px 24px;
+}
+
+.filter-status {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  color: #777;
+}
+
+.clear-filters {
+  border: none;
+  background: transparent;
+
+  color: #777;
+
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+
+  cursor: pointer;
+}
+
+.clear-filters:hover:not(:disabled) {
+  color: #b49a5a;
+}
+
+.clear-filters:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* =========================================================
+   LOG TABLE
+========================================================= */
+
+.logs-explorer-table {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.logs-explorer-table .log-table-head,
+.logs-explorer-table .log-row {
+  min-width: 1100px;
+
+  display: grid;
+
+  grid-template-columns:
+    185px
+    100px
+    170px
+    minmax(300px, 1fr)
+    minmax(220px, 0.8fr);
+
+  column-gap: 16px;
+  align-items: center;
+}
+
+.logs-explorer-table .log-table-head {
+  min-height: 42px;
+
+  padding: 0 24px;
+
+  box-sizing: border-box;
+
+  background: #f5f3ee;
+
+  border-top: 1px solid #ebe8e0;
+  border-bottom: 1px solid #ebe8e0;
+}
+
+.logs-explorer-table .log-table-head span {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: #777;
+}
+
+.logs-explorer-table .log-row {
+  min-height: 62px;
+
+  padding: 10px 24px;
+
+  box-sizing: border-box;
+
+  border-bottom: 1px solid #eeeae2;
+
+  transition: background 0.15s ease;
+}
+
+.logs-explorer-table .log-row:hover {
+  background: #faf9f6;
+}
+
+/* =========================================================
+   TIMESTAMP
+========================================================= */
+
+.logs-explorer-table .log-row time {
+  font-family:
+    "SFMono-Regular",
+    Consolas,
+    "Liberation Mono",
+    monospace;
+
+  font-size: 11px;
+
+  color: #555;
+
+  white-space: nowrap;
+}
+
+/* =========================================================
+   LEVEL
+========================================================= */
+
+.logs-explorer-table .level {
+  display: inline-flex;
+
+  width: fit-content;
+
+  padding: 5px 8px;
+
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+
+  border: 1px solid transparent;
+}
+
+.logs-explorer-table .level-debug {
+  color: #666;
+  background: #eeeeee;
+  border-color: #d8d8d8;
+}
+
+.logs-explorer-table .level-info {
+  color: #536b7d;
+  background: #edf3f7;
+  border-color: #d6e2e9;
+}
+
+.logs-explorer-table .level-warn {
+  color: #8a6b28;
+  background: #faf4df;
+  border-color: #e9dba9;
+}
+
+.logs-explorer-table .level-error {
+  color: #9b4545;
+  background: #f8eaea;
+  border-color: #e8caca;
+}
+
+/* =========================================================
+   SERVICE
+========================================================= */
+
+.logs-explorer-table .service {
+  font-size: 12px;
+  font-weight: 600;
+
+  color: #333;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* =========================================================
+   MESSAGE
+========================================================= */
+
+.log-message {
+  margin: 0;
+
+  font-size: 12px;
+  line-height: 1.5;
+
+  color: #333;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* =========================================================
+   ATTRIBUTES
+========================================================= */
+
+.log-attributes {
+  display: block;
+
+  max-width: 100%;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  padding: 6px 8px;
+
+  border: 1px solid #e6e2d9;
+
+  background: #f8f7f3;
+
+  color: #666;
+
+  font-family:
+    "SFMono-Regular",
+    Consolas,
+    "Liberation Mono",
+    monospace;
+
+  font-size: 10px;
+}
+
+/* =========================================================
+   EMPTY / ERROR
+========================================================= */
+
+.logs-page .empty-state {
+  padding: 55px 24px;
+
+  text-align: center;
+
+  color: #777;
+
+  font-size: 12px;
+  letter-spacing: 0.03em;
+}
+
+.logs-page .error-state {
+  color: #a14a4a;
+}
+
+/* =========================================================
+   PAGINATION
+========================================================= */
+
+.pagination {
+  display: flex;
+
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 18px 24px;
+
+  border-top: 1px solid #ebe8e0;
+
+  background: #faf9f6;
+}
+
+.pagination-info {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+
+  color: #777;
+}
+
+.pagination-info strong {
+  color: #222;
+}
+
+.pagination-info span {
+  color: #b49a5a;
+}
+
+.pagination-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.pagination-actions button {
+  height: 38px;
+
+  padding: 0 15px;
+
+  border: 1px solid #d6d2c9;
+
+  background: #fff;
+
+  color: #333;
+
+  font-family: inherit;
+
+  font-size: 10px;
+  font-weight: 700;
+
+  letter-spacing: 0.08em;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.pagination-actions button:hover:not(:disabled) {
+  background: #1d1d1b;
+  border-color: #1d1d1b;
+  color: #fff;
+}
+
+.pagination-actions button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+
+@media (max-width: 1100px) {
+  .filters-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .search-field {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 700px) {
+  .filters-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .search-field {
+    grid-column: auto;
+  }
+
+  .filter-actions {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .pagination {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+  }
+
+  .pagination-actions {
+    width: 100%;
+  }
+
+  .pagination-actions button {
+    flex: 1;
+  }
+}
+
+
+/* =========================================================
+   BACKEND STATUS
+========================================================= */
+
+.topbar-online {
+  color: #2f7d4a;
+}
+
+.topbar-offline {
+  color: #a64040;
+}
+
+.status-online {
+  background: #4f9d69;
+  box-shadow: 0 0 0 4px rgba(79, 157, 105, 0.12);
+}
+
+.status-offline {
+  background: #b64b4b;
+  box-shadow: 0 0 0 4px rgba(182, 75, 75, 0.12);
+}
+
+
+/* =========================================================
+   OFFLINE WARNING
+========================================================= */
+
+.logs-offline-panel {
+  margin-bottom: 18px;
+  border: 1px solid #efcccc;
+  background: #fff8f8;
+}
+
+.logs-offline-content {
+  min-height: 76px;
+  padding: 18px 22px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.logs-offline-content strong {
+  display: block;
+  color: #a64040;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+}
+
+.logs-offline-content p {
+  margin: 5px 0 0;
+  color: #8f6b6b;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+
+/* =========================================================
+   OFFLINE LOG STATE
+========================================================= */
+
+.logs-offline-state {
+  min-height: 240px;
+  flex-direction: column;
+  gap: 10px;
+  text-align: center;
+}
+
+.logs-offline-state strong {
+  color: #a64040;
+  font-size: 11px;
+  letter-spacing: 1.2px;
+}
+
+.logs-offline-state p {
+  margin: 0;
+  color: #9a8585;
+  font-size: 11px;
+}
+
+
+/* =========================================================
+   DISABLED CONTROLS
+========================================================= */
+
+.logs-filters input:disabled,
+.logs-filters select:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  background: #f2f3f5;
+}
+
+.logs-filters button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}

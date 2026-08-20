@@ -36,16 +36,13 @@ app.get('/health', async (req: Request, res: Response) => {
     });
   }
 });
-
-// Dashboard statistics
-app.get('/stats', async (req: Request, res: Response) => {
+// Statistics
+app.get('/stats', async (_req: Request, res: Response) => {
   try {
     const result = await db.execute(sql`
       SELECT
-        COUNT(*)::int AS "totalLogs",
-        COUNT(*) FILTER (
-          WHERE level = 'error'
-        )::int AS errors,
+        COUNT(*)::int AS total_logs,
+        COUNT(*) FILTER (WHERE level = 'error')::int AS errors,
         COUNT(DISTINCT service)::int AS services
       FROM logs
     `);
@@ -53,15 +50,13 @@ app.get('/stats', async (req: Request, res: Response) => {
     const stats = result.rows[0];
 
     res.status(200).json({
-      totalLogs: stats?.totalLogs ?? 0,
-      errors: stats?.errors ?? 0,
-      services: stats?.services ?? 0,
+      total_logs: stats.total_logs,
+      errors: stats.errors,
+      services: stats.services,
     });
   } catch (err) {
     res.status(500).json({
-      error: err instanceof Error
-        ? err.message
-        : 'Failed to load statistics',
+      error: err instanceof Error ? err.message : 'Failed to load stats',
     });
   }
 });
