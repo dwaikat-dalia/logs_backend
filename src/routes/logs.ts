@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { db, pool } from '../db/database';
-import { logs, logRollups } from '../db/schema';
+import { logs } from '../db/schema';
 import { validateLogEntry } from '../utils/validator';
 import {
   and,
@@ -49,9 +49,22 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
     reason: string;
   }[] = [];
 
-  const csvRows: string[] = new Array(entries.length);
+  // Build only accepted rows.
+  // This avoids creating a sparse array and then running .filter().
+  const csvRows: string[] = [];
 
   let accepted = 0;
+
+  // ------------------------------------------
+  // PostgreSQL COPY text escaping
+  // ------------------------------------------
+
+  const escapeCopyText = (value: string): string =>
+    value
+      .replace(/\\/g, '\\\\')
+      .replace(/\t/g, '\\t')
+      .replace(/\n/g, '\\n')
+      .replace(/\r/g, '\\r');
 
   // ------------------------------------------
   // Validation + CSV preparation
@@ -74,28 +87,30 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
     }
 
     const timestamp = new Date(entry.timestamp).toISOString();
+
     const level = entry.level;
     const service = entry.service;
 
-    const message = String(entry.message)
-      .replace(/\\/g, '\\\\')
-      .replace(/\t/g, '\\t')
-      .replace(/\n/g, '\\n')
-      .replace(/\r/g, '\\r');
+    const message = escapeCopyText(
+      String(entry.message)
+    );
 
-    const attributes = JSON.stringify(entry.attributes || {})
-      .replace(/\\/g, '\\\\')
-      .replace(/\t/g, '\\t')
-      .replace(/\n/g, '\\n')
-      .replace(/\r/g, '\\r');
+    const attributes = escapeCopyText(
+      JSON.stringify(entry.attributes || {})
+    );
 
-    csvRows[i] =
-      `${timestamp}\t${level}\t${service}\t${message}\t${attributes}`;
+    csvRows.push(
+      `${timestamp}\t${level}\t${service}\t${message}\t${attributes}`
+    );
 
     accepted++;
   }
 
   const prepareTime = performance.now() - prepareStart;
+
+  // ------------------------------------------
+  // No valid logs
+  // ------------------------------------------
 
   if (accepted === 0) {
     return res.status(400).json({
@@ -104,11 +119,16 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
     });
   }
 
-  const csvData = csvRows
-    .filter((row): row is string => row !== undefined)
-    .join('\n');
+  // ------------------------------------------
+  // Build COPY payload
+  // ------------------------------------------
 
-  const csvSizeBytes = Buffer.byteLength(csvData, 'utf8');
+  const csvData = csvRows.join('\n');
+
+  const csvSizeBytes = Buffer.byteLength(
+    csvData,
+    'utf8'
+  );
 
   // ------------------------------------------
   // PostgreSQL connection
@@ -118,7 +138,8 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
 
   const client = await pool.connect();
 
-  const connectionTime = performance.now() - connectionStart;
+  const connectionTime =
+    performance.now() - connectionStart;
 
   try {
     // ----------------------------------------
@@ -142,17 +163,19 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
     const sourceStream = Readable.from([csvData]);
 
     await new Promise<void>((resolve, reject) => {
-      stream.on('finish', resolve);
-      stream.on('error', reject);
+      stream.once('finish', resolve);
+      stream.once('error', reject);
 
-      sourceStream.on('error', reject);
+      sourceStream.once('error', reject);
 
       sourceStream.pipe(stream);
     });
 
-    const copyTime = performance.now() - copyStart;
+    const copyTime =
+      performance.now() - copyStart;
 
-    const totalTime = performance.now() - requestStart;
+    const totalTime =
+      performance.now() - requestStart;
 
     console.log(
       `[INGEST] accepted=${accepted} ` +
@@ -170,7 +193,10 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
     });
 
   } catch (err) {
-    console.error('Error with COPY bulk insert logs:', err);
+    console.error(
+      'Error with COPY bulk insert logs:',
+      err
+    );
 
     return res.status(500).json({
       error: 'Internal server error while saving logs',
@@ -180,7 +206,6 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
     client.release();
   }
 });
-
 // ==========================================
 // 2. GET /logs
 // ==========================================
@@ -374,7 +399,7 @@ router.get('/', async (req: Request, res: Response): Promise<any> => {
             ${logs.timestamp},
             ${logs.id}
           ) < (
-            ${decoded.timestamp},
+            ${decoded.timestamp}::timestamp,
             ${decoded.id}
           )`
         );
@@ -442,11 +467,9 @@ router.get('/', async (req: Request, res: Response): Promise<any> => {
 });
 
 // ==========================================
-// 3. GET /logs/aggregate
+// 3. GET /logs/aggregate (Direct Raw Logs Path)
 // ==========================================
-// ==========================================
-// 3. مسار التجميع الإحصائي (GET /logs/aggregate)
-// ==========================================
+
 router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
   try {
     const {
@@ -563,163 +586,8 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
       });
     }
 
-    // ----------------------------------------
-    // Detect attribute filters
-    // ----------------------------------------
-
-    const hasAttributeFilter = Object.keys(req.query).some((key) =>
-      key.startsWith('attr.')
-    );
-
     // ==================================================
-    // ROLLUP PATH
-    //
-    // Use the pre-computed aggregate table for ALL
-    // supported bucket sizes:
-    //
-    //   1m -> log_rollups
-    //   5m -> log_rollups
-    //   1h -> log_rollups
-    //   1d -> log_rollups
-    //
-    // q and attr.* cannot use the rollup because the
-    // rollup table does not contain message/attributes.
-    // ==================================================
-
-    const canUseRollup =
-      validBuckets.includes(bucket) &&
-      !q &&
-      !hasAttributeFilter;
-
-    if (canUseRollup) {
-      const rollupConditions = [
-        // IMPORTANT:
-        // Select ONLY the requested resolution.
-        eq(logRollups.bucketSize, bucket),
-
-        // Requested time range.
-        gte(logRollups.bucketStart, sinceDate),
-        sql`${logRollups.bucketStart} < ${untilDate}`,
-      ];
-
-      // ----------------------------------------
-      // Optional service filter
-      // ----------------------------------------
-
-      if (service !== undefined) {
-        rollupConditions.push(
-          eq(logRollups.service, service as string)
-        );
-      }
-
-      // ----------------------------------------
-      // Optional level filter
-      // ----------------------------------------
-
-      if (level !== undefined) {
-        rollupConditions.push(
-          eq(logRollups.level, level as string)
-        );
-      }
-
-      // ----------------------------------------
-      // group_by = service
-      // ----------------------------------------
-
-      if (group_by === 'service') {
-        const results = await db
-          .select({
-            start: logRollups.bucketStart,
-            group: logRollups.service,
-            count: sql<number>`sum(${logRollups.count})`,
-          })
-          .from(logRollups)
-          .where(and(...rollupConditions))
-          .groupBy(
-            logRollups.bucketStart,
-            logRollups.service
-          )
-          .orderBy(
-            asc(logRollups.bucketStart)
-          );
-
-        return res.status(200).json({
-          buckets: results.map((row) => ({
-            start: row.start,
-            group: row.group,
-            count: Number(row.count),
-          })),
-        });
-      }
-
-      // ----------------------------------------
-      // group_by = level
-      // ----------------------------------------
-
-      if (group_by === 'level') {
-        const results = await db
-          .select({
-            start: logRollups.bucketStart,
-            group: logRollups.level,
-            count: sql<number>`sum(${logRollups.count})`,
-          })
-          .from(logRollups)
-          .where(and(...rollupConditions))
-          .groupBy(
-            logRollups.bucketStart,
-            logRollups.level
-          )
-          .orderBy(
-            asc(logRollups.bucketStart)
-          );
-
-        return res.status(200).json({
-          buckets: results.map((row) => ({
-            start: row.start,
-            group: row.group,
-            count: Number(row.count),
-          })),
-        });
-      }
-
-      // ----------------------------------------
-      // No group_by
-      // ----------------------------------------
-
-      const results = await db
-        .select({
-          start: logRollups.bucketStart,
-          group: sql<string | null>`NULL`,
-          count: sql<number>`sum(${logRollups.count})`,
-        })
-        .from(logRollups)
-        .where(and(...rollupConditions))
-        .groupBy(
-          logRollups.bucketStart
-        )
-        .orderBy(
-          asc(logRollups.bucketStart)
-        );
-
-      return res.status(200).json({
-        buckets: results.map((row) => ({
-          start: row.start,
-          group: row.group,
-          count: Number(row.count),
-        })),
-      });
-    }
-
-    // ==================================================
-    // RAW LOGS PATH
-    //
-    // Used only when the rollup cannot answer the query:
-    //
-    // - q
-    // - attr.*
-    //
-    // The normal 1m/5m/1h/1d aggregation DOES NOT come
-    // here anymore.
+    // RAW LOGS AGGREGATION PATH (Direct & Consistent)
     // ==================================================
 
     const conditions = [
@@ -792,34 +660,22 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
     }
 
     // ----------------------------------------
-    // Raw time bucket
+    // Time bucket calculation
     // ----------------------------------------
 
     const timeBucket = (() => {
       switch (bucket) {
         case '1m':
-          return sql`
-            date_trunc('minute', ${logs.timestamp})
-          `;
+          return sql`date_trunc('minute', ${logs.timestamp})`;
 
         case '5m':
-          return sql`
-            to_timestamp(
-              floor(
-                extract(epoch from ${logs.timestamp}) / 300
-              ) * 300
-            )
-          `;
+          return sql`to_timestamp(floor(extract(epoch from ${logs.timestamp}) / 300) * 300)`;
 
         case '1h':
-          return sql`
-            date_trunc('hour', ${logs.timestamp})
-          `;
+          return sql`date_trunc('hour', ${logs.timestamp})`;
 
         case '1d':
-          return sql`
-            date_trunc('day', ${logs.timestamp})
-          `;
+          return sql`date_trunc('day', ${logs.timestamp})`;
 
         default:
           throw new Error('Invalid bucket');
@@ -827,7 +683,7 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
     })();
 
     // ----------------------------------------
-    // Raw aggregation
+    // Database Aggregation Query
     // ----------------------------------------
 
     let results;
@@ -897,4 +753,5 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
     });
   }
 });
+
 export default router;

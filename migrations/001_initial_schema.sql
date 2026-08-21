@@ -1,5 +1,10 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+
+DROP TABLE IF EXISTS log_rollups;
+
 
 CREATE TABLE IF NOT EXISTS logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -18,48 +23,14 @@ CREATE TABLE IF NOT EXISTS logs (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- ==========================================
--- Logs indexes
--- ==========================================
 
--- Sorting + cursor pagination
+CREATE INDEX IF NOT EXISTS idx_logs_agg_filter
+    ON logs (timestamp, service, level);
+
+
 CREATE INDEX IF NOT EXISTS idx_logs_timestamp_desc
     ON logs (timestamp DESC, id DESC);
 
--- Attribute + service + level + time filtering
-CREATE INDEX IF NOT EXISTS idx_logs_user_service_level_time
-    ON logs (
-        (attributes->>'user_id'),
-        service,
-        level,
-        timestamp DESC,
-        id DESC
-    );
 
--- Case-insensitive substring search
 CREATE INDEX IF NOT EXISTS idx_logs_message_trgm
     ON logs USING GIN (message gin_trgm_ops);
-
--- ==========================================
--- Rollups
--- ==========================================
-
-CREATE TABLE IF NOT EXISTS log_rollups (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-
-    bucket_start TIMESTAMPTZ NOT NULL,
-
-    service VARCHAR(255),
-
-    level VARCHAR(10),
-
-    bucket_size VARCHAR(2) NOT NULL DEFAULT '1h',
-
-    count INTEGER NOT NULL DEFAULT 0,
-
-    CONSTRAINT uq_log_rollups_size_bucket_service_level
-        UNIQUE (bucket_size, bucket_start, service, level)
-);
-
-CREATE INDEX IF NOT EXISTS idx_log_rollups_bucket
-    ON log_rollups (bucket_start);

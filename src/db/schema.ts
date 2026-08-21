@@ -6,8 +6,7 @@ import {
   text,
   jsonb,
   index,
-  integer,
-  uniqueIndex,
+  check,
 } from "drizzle-orm/pg-core";
 
 import { sql } from "drizzle-orm";
@@ -43,73 +42,24 @@ export const logs = pgTable(
   },
 
   (table) => ({
-    // Sorting + cursor pagination
-    timestampIdx: index("idx_logs_timestamp_desc")
-      .on(
-        table.timestamp.desc(),
-        table.id.desc()
-      ),
+    levelCheck: check(
+      "logs_level_check",
+      sql`${table.level} IN ('debug', 'info', 'warn', 'error')`
+    ),
 
-    // Attribute + service + level + time filtering
-    userServiceLevelTimeIdx: index(
-      "idx_logs_user_service_level_time"
-    ).on(
-      sql`(${table.attributes}->>'user_id')`,
+    aggFilterIdx: index("idx_logs_agg_filter").on(
+      table.timestamp,
       table.service,
-      table.level,
+      table.level
+    ),
+
+    timestampIdx: index("idx_logs_timestamp_desc").on(
       table.timestamp.desc(),
       table.id.desc()
     ),
 
-    // Case-insensitive substring search
-    messageTrgmIdx: index(
-      "idx_logs_message_trgm"
-    )
+    messageTrgmIdx: index("idx_logs_message_trgm")
       .using("gin", table.message)
       .with({ gin_trgm_ops: "gin_trgm_ops" }),
-  })
-);
-
-export const logRollups = pgTable(
-  "log_rollups",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-
-    bucketStart: timestamp("bucket_start", {
-      withTimezone: true,
-    }).notNull(),
-
-    service: varchar("service", {
-      length: 255,
-    }),
-
-    level: varchar("level", {
-      length: 10,
-    }),
-
-    // Rollup resolution: 1m, 1h, etc.
-    bucketSize: varchar("bucket_size", {
-      length: 2,
-    })
-      .notNull()
-      .default("1h"),
-
-    count: integer("count")
-      .notNull()
-      .default(0),
-  },
-
-  (table) => ({
-    bucketIdx: index("idx_log_rollups_bucket")
-      .on(table.bucketStart),
-
-    uniqueBucket: uniqueIndex(
-      "uq_log_rollups_size_bucket_service_level"
-    ).on(
-      table.bucketSize,
-      table.bucketStart,
-      table.service,
-      table.level
-    ),
   })
 );

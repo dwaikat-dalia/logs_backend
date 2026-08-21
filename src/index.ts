@@ -3,7 +3,6 @@ import cors from "cors";
 import { connectDB, db } from './db/database';
 import logsRouter from './routes/logs';
 import { sql } from 'drizzle-orm';
-import { refreshRollups } from './services/rollup.service';
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -36,6 +35,7 @@ app.get('/health', async (req: Request, res: Response) => {
     });
   }
 });
+
 // Statistics
 app.get('/stats', async (_req: Request, res: Response) => {
   try {
@@ -71,15 +71,7 @@ async function startServer() {
     console.log(`Server is running on port ${PORT}`);
   });
 
- 
-  void refreshRollups();
-
-  // Keep rollups updated every 20 seconds
-  setInterval(() => {
-    void refreshRollups();
-  }, 20000);
-
-  // Retention cleanup
+  // Retention cleanup (تنظيف السجلات القديمة حسب سياسة الاحتفاظ)
   setInterval(async () => {
     try {
       await db.execute(sql`
@@ -98,6 +90,7 @@ async function startServer() {
     }
   }, 60 * 60 * 1000);
 }
+
 startServer().catch((err) => {
   console.error('Failed to start server:', err);
   process.exit(1);
