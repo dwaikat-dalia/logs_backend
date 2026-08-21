@@ -71,8 +71,10 @@ async function startServer() {
     console.log(`Server is running on port ${PORT}`);
   });
 
-  // Refresh rollups in the background every 20 seconds.
-  // Rollups do not block ingestion or server startup.
+ 
+  void refreshRollups();
+
+  // Keep rollups updated every 20 seconds
   setInterval(() => {
     void refreshRollups();
   }, 20000);

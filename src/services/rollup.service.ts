@@ -4,7 +4,6 @@ import { sql } from 'drizzle-orm';
 let refreshInProgress = false;
 
 export async function refreshRollups(): Promise<void> {
-  // Prevent overlapping rollup jobs
   if (refreshInProgress) {
     console.log('[ROLLUP] refresh already in progress, skipping');
     return;
@@ -13,31 +12,15 @@ export async function refreshRollups(): Promise<void> {
   refreshInProgress = true;
 
   try {
-    // --------------------------------------------------
-    // Check whether logs and rollups exist
-    // --------------------------------------------------
-
     const existing = await db.execute(sql`
-      SELECT
-        EXISTS (
-          SELECT 1
-          FROM logs
-          LIMIT 1
-        ) AS has_logs,
-
-        EXISTS (
-          SELECT 1
-          FROM log_rollups
-          LIMIT 1
-        ) AS has_rollups
+      SELECT EXISTS (
+        SELECT 1
+        FROM logs
+        LIMIT 1
+      ) AS has_logs
     `);
 
     const hasLogs = Boolean(existing.rows[0]?.has_logs);
-    const hasRollups = Boolean(existing.rows[0]?.has_rollups);
-
-    // --------------------------------------------------
-    // No logs yet
-    // --------------------------------------------------
 
     if (!hasLogs) {
       console.log('[ROLLUP] no logs found, skipping');
@@ -45,52 +28,7 @@ export async function refreshRollups(): Promise<void> {
     }
 
     // --------------------------------------------------
-    // First run after logs have been inserted
-    // Build historical rollups for all existing logs
-    // --------------------------------------------------
-
-    if (!hasRollups) {
-      console.log(
-        '[ROLLUP] logs found but rollups are empty - building historical rollups'
-      );
-
-      await db.execute(sql`
-        INSERT INTO log_rollups (
-          bucket_start,
-          service,
-          level,
-          count
-        )
-        SELECT
-          date_trunc('hour', timestamp) AS bucket_start,
-          service,
-          level,
-          count(*)::integer AS count
-        FROM logs
-        GROUP BY
-          date_trunc('hour', timestamp),
-          service,
-          level
-        ON CONFLICT (
-          bucket_start,
-          service,
-          level
-        )
-        DO UPDATE SET
-          count = EXCLUDED.count;
-      `);
-
-      console.log('[ROLLUP] historical backfill completed');
-
-      return;
-    }
-
-    // --------------------------------------------------
-    // Normal refresh
-    //
-    // Refresh previous + current hour.
-    // This keeps recent data accurate without
-    // repeatedly scanning the entire logs table.
+    // 1m rollups — recent 6 hours
     // --------------------------------------------------
 
     await db.execute(sql`
@@ -98,23 +36,24 @@ export async function refreshRollups(): Promise<void> {
         bucket_start,
         service,
         level,
+        bucket_size,
         count
       )
       SELECT
-        date_trunc('hour', timestamp) AS bucket_start,
+        date_trunc('minute', timestamp),
         service,
         level,
-        count(*)::integer AS count
+        '1m',
+        count(*)::integer
       FROM logs
-      WHERE timestamp >=
-            date_trunc('hour', NOW()) - INTERVAL '1 hour'
-        AND timestamp <
-            date_trunc('hour', NOW()) + INTERVAL '1 hour'
+      WHERE timestamp >= NOW() - INTERVAL '6 hours'
+        AND timestamp < NOW()
       GROUP BY
-        date_trunc('hour', timestamp),
+        date_trunc('minute', timestamp),
         service,
         level
       ON CONFLICT (
+        bucket_size,
         bucket_start,
         service,
         level
@@ -123,61 +62,123 @@ export async function refreshRollups(): Promise<void> {
         count = EXCLUDED.count;
     `);
 
-    console.log('[ROLLUP] recent hours refreshed');
+    // --------------------------------------------------
+    // 5m rollups — recent 2 days
+    // --------------------------------------------------
 
+    await db.execute(sql`
+      INSERT INTO log_rollups (
+        bucket_start,
+        service,
+        level,
+        bucket_size,
+        count
+      )
+      SELECT
+        date_bin(
+          INTERVAL '5 minutes',
+          timestamp,
+          TIMESTAMPTZ '1970-01-01'
+        ),
+        service,
+        level,
+        '5m',
+        count(*)::integer
+      FROM logs
+      WHERE timestamp >= NOW() - INTERVAL '2 days'
+        AND timestamp < NOW()
+      GROUP BY
+        date_bin(
+          INTERVAL '5 minutes',
+          timestamp,
+          TIMESTAMPTZ '1970-01-01'
+        ),
+        service,
+        level
+      ON CONFLICT (
+        bucket_size,
+        bucket_start,
+        service,
+        level
+      )
+      DO UPDATE SET
+        count = EXCLUDED.count;
+    `);
+
+    // --------------------------------------------------
+    // 1h rollups — recent 7 days
+    // --------------------------------------------------
+
+    await db.execute(sql`
+      INSERT INTO log_rollups (
+        bucket_start,
+        service,
+        level,
+        bucket_size,
+        count
+      )
+      SELECT
+        date_trunc('hour', timestamp),
+        service,
+        level,
+        '1h',
+        count(*)::integer
+      FROM logs
+      WHERE timestamp >= NOW() - INTERVAL '7 days'
+        AND timestamp < NOW()
+      GROUP BY
+        date_trunc('hour', timestamp),
+        service,
+        level
+      ON CONFLICT (
+        bucket_size,
+        bucket_start,
+        service,
+        level
+      )
+      DO UPDATE SET
+        count = EXCLUDED.count;
+    `);
+
+    // --------------------------------------------------
+    // 1d rollups — recent 31 days
+    // --------------------------------------------------
+
+    await db.execute(sql`
+      INSERT INTO log_rollups (
+        bucket_start,
+        service,
+        level,
+        bucket_size,
+        count
+      )
+      SELECT
+        date_trunc('day', timestamp),
+        service,
+        level,
+        '1d',
+        count(*)::integer
+      FROM logs
+      WHERE timestamp >= NOW() - INTERVAL '31 days'
+        AND timestamp < NOW()
+      GROUP BY
+        date_trunc('day', timestamp),
+        service,
+        level
+      ON CONFLICT (
+        bucket_size,
+        bucket_start,
+        service,
+        level
+      )
+      DO UPDATE SET
+        count = EXCLUDED.count;
+    `);
+
+    console.log('[ROLLUP] 1m + 5m + 1h + 1d rollups refreshed');
   } catch (error) {
     console.error('[ROLLUP] refresh failed:', error);
   } finally {
     refreshInProgress = false;
   }
 }
-/*import { db } from '../db/database';
-import { sql } from 'drizzle-orm';
-
-let refreshInProgress = false;
-
-export async function refreshRollups(): Promise<void> {
-  // Prevent overlapping rollup jobs
-  if (refreshInProgress) {
-    console.log('Rollup refresh already in progress, skipping.');
-    return;
-  }
-
-  refreshInProgress = true;
-
-  try {
-    await db.execute(sql`
-      INSERT INTO log_rollups (
-        bucket_start,
-        service,
-        level,
-        count
-      )
-      SELECT
-        date_trunc('hour', timestamp) AS bucket_start,
-        service,
-        level,
-        count(*) AS count
-      FROM logs
-      WHERE timestamp >= date_trunc('hour', NOW()) - INTERVAL '1 hour'
-        AND timestamp < date_trunc('hour', NOW()) + INTERVAL '1 hour'
-      GROUP BY
-        date_trunc('hour', timestamp),
-        service,
-        level
-      ON CONFLICT (
-        bucket_start,
-        service,
-        level
-      )
-      DO UPDATE SET
-        count = EXCLUDED.count;
-    `);
-
-    console.log('Current-hour rollups refreshed successfully.');
-  } catch (error) {
-    console.error('Failed to refresh rollups:', error);
-  } finally {
-    refreshInProgress = false;
-  }
-}*/

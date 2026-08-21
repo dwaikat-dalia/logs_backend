@@ -1,22 +1,30 @@
 import { Router, Request, Response } from 'express';
-import { db } from '../db/database';
-import { pool } from '../db/database'; // تأكد من تصدير الـ pool من ملف قاعدة البيانات
-import { logs } from '../db/schema';
+import { db, pool } from '../db/database';
+import { logs, logRollups } from '../db/schema';
 import { validateLogEntry } from '../utils/validator';
-import { and, eq, gte, lte, ilike, sql, desc, asc } from 'drizzle-orm';
+import {
+  and,
+  eq,
+  gte,
+  ilike,
+  sql,
+  desc,
+  asc,
+} from 'drizzle-orm';
 import { from as copyFrom } from 'pg-copy-streams';
 import { Readable } from 'stream';
 import { performance } from 'perf_hooks';
-import { logRollups } from '../db/schema';
 import {
   encodeCursor,
   decodeCursor,
 } from '../utils/cursor';
+
 const router = Router();
 
 // ==========================================
-// 1. مسار إرسال وتخزين اللوجات (POST /logs) - باستخدام COPY
+// 1. POST /logs
 // ==========================================
+
 router.post('/', async (req: Request, res: Response): Promise<any> => {
   const requestStart = performance.now();
 
@@ -45,9 +53,9 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
 
   let accepted = 0;
 
-  // --------------------------------------------------
-  // Validation + CSV preparation in ONE loop
-  // --------------------------------------------------
+  // ------------------------------------------
+  // Validation + CSV preparation
+  // ------------------------------------------
 
   const prepareStart = performance.now();
 
@@ -69,7 +77,6 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
     const level = entry.level;
     const service = entry.service;
 
-    // PostgreSQL COPY text format escaping
     const message = String(entry.message)
       .replace(/\\/g, '\\\\')
       .replace(/\t/g, '\\t')
@@ -97,19 +104,15 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
     });
   }
 
-  // --------------------------------------------------
-  // Remove empty positions caused by rejected entries
-  // --------------------------------------------------
-
   const csvData = csvRows
     .filter((row): row is string => row !== undefined)
     .join('\n');
 
   const csvSizeBytes = Buffer.byteLength(csvData, 'utf8');
 
-  // --------------------------------------------------
-  // Acquire DB connection ONLY after CPU work is done
-  // --------------------------------------------------
+  // ------------------------------------------
+  // PostgreSQL connection
+  // ------------------------------------------
 
   const connectionStart = performance.now();
 
@@ -118,9 +121,9 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
   const connectionTime = performance.now() - connectionStart;
 
   try {
-    // --------------------------------------------------
-    // PostgreSQL COPY
-    // --------------------------------------------------
+    // ----------------------------------------
+    // COPY bulk insert
+    // ----------------------------------------
 
     const copyStart = performance.now();
 
@@ -177,9 +180,11 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
     client.release();
   }
 });
+
 // ==========================================
-// 2. مسار الاستعلام والبحث والفلترة (GET /logs)
+// 2. GET /logs
 // ==========================================
+
 router.get('/', async (req: Request, res: Response): Promise<any> => {
   try {
     const {
@@ -192,9 +197,9 @@ router.get('/', async (req: Request, res: Response): Promise<any> => {
       limit = '100',
     } = req.query;
 
-    // -----------------------------
+    // ----------------------------------------
     // Validate limit
-    // -----------------------------
+    // ----------------------------------------
 
     const parsedLimit = Number(limit);
 
@@ -208,24 +213,32 @@ router.get('/', async (req: Request, res: Response): Promise<any> => {
       });
     }
 
-    // -----------------------------
+    // ----------------------------------------
     // Validate level
-    // -----------------------------
+    // ----------------------------------------
 
-    const validLevels = ['debug', 'info', 'warn', 'error'];
+    const validLevels = [
+      'debug',
+      'info',
+      'warn',
+      'error',
+    ];
 
     if (
       level !== undefined &&
-      (typeof level !== 'string' || !validLevels.includes(level))
+      (
+        typeof level !== 'string' ||
+        !validLevels.includes(level)
+      )
     ) {
       return res.status(400).json({
         error: 'Invalid level parameter.',
       });
     }
 
-    // -----------------------------
+    // ----------------------------------------
     // Validate dates
-    // -----------------------------
+    // ----------------------------------------
 
     let sinceDate: Date | undefined;
     let untilDate: Date | undefined;
@@ -268,9 +281,9 @@ router.get('/', async (req: Request, res: Response): Promise<any> => {
       });
     }
 
-    // -----------------------------
+    // ----------------------------------------
     // Build conditions
-    // -----------------------------
+    // ----------------------------------------
 
     const conditions = [];
 
@@ -285,22 +298,26 @@ router.get('/', async (req: Request, res: Response): Promise<any> => {
     }
 
     if (level) {
-      conditions.push(eq(logs.level, level as string));
+      conditions.push(
+        eq(logs.level, level as string)
+      );
     }
 
     if (sinceDate) {
-      conditions.push(gte(logs.timestamp, sinceDate));
+      conditions.push(
+        gte(logs.timestamp, sinceDate)
+      );
     }
 
-    // IMPORTANT:
-    // until is EXCLUSIVE
     if (untilDate) {
-      conditions.push(sql`${logs.timestamp} < ${untilDate}`);
+      conditions.push(
+        sql`${logs.timestamp} < ${untilDate}`
+      );
     }
 
-    // -----------------------------
+    // ----------------------------------------
     // Message search
-    // -----------------------------
+    // ----------------------------------------
 
     if (q) {
       if (typeof q !== 'string') {
@@ -314,11 +331,9 @@ router.get('/', async (req: Request, res: Response): Promise<any> => {
       );
     }
 
-    // -----------------------------
+    // ----------------------------------------
     // Attribute filters
-    // attr.user_id=42
-    // attr.region=eu-west
-    // -----------------------------
+    // ----------------------------------------
 
     for (const [key, value] of Object.entries(req.query)) {
       if (!key.startsWith('attr.')) {
@@ -344,17 +359,26 @@ router.get('/', async (req: Request, res: Response): Promise<any> => {
       );
     }
 
-    // -----------------------------
+    // ----------------------------------------
     // Cursor
-    // -----------------------------
+    // ----------------------------------------
 
     if (cursor) {
       try {
-        const decoded = decodeCursor(cursor as string);
+        const decoded = decodeCursor(
+          cursor as string
+        );
 
         conditions.push(
-          sql`(${logs.timestamp}, ${logs.id}) < (${decoded.timestamp}, ${decoded.id})`
+          sql`(
+            ${logs.timestamp},
+            ${logs.id}
+          ) < (
+            ${decoded.timestamp},
+            ${decoded.id}
+          )`
         );
+
       } catch {
         return res.status(400).json({
           error: 'Invalid or malformed cursor.',
@@ -362,9 +386,9 @@ router.get('/', async (req: Request, res: Response): Promise<any> => {
       }
     }
 
-    // -----------------------------
+    // ----------------------------------------
     // Query
-    // -----------------------------
+    // ----------------------------------------
 
     const results = await db
       .select()
@@ -380,19 +404,21 @@ router.get('/', async (req: Request, res: Response): Promise<any> => {
       )
       .limit(parsedLimit + 1);
 
-    // -----------------------------
-    // Cursor
-    // -----------------------------
+    // ----------------------------------------
+    // Cursor response
+    // ----------------------------------------
 
     let nextCursor: string | null = null;
 
     if (results.length > parsedLimit) {
-      const lastReturned = results[parsedLimit - 1];
+      const lastReturned =
+        results[parsedLimit - 1];
 
       results.pop();
 
       nextCursor = encodeCursor({
-        timestamp: lastReturned.timestamp.toISOString(),
+        timestamp:
+          lastReturned.timestamp.toISOString(),
         id: lastReturned.id,
       });
     }
@@ -403,14 +429,21 @@ router.get('/', async (req: Request, res: Response): Promise<any> => {
     });
 
   } catch (err) {
-    console.error('Error fetching logs:', err);
+    console.error(
+      'Error fetching logs:',
+      err
+    );
 
     return res.status(500).json({
-      error: 'Internal server error while fetching logs',
+      error:
+        'Internal server error while fetching logs',
     });
   }
 });
 
+// ==========================================
+// 3. GET /logs/aggregate
+// ==========================================
 // ==========================================
 // 3. مسار التجميع الإحصائي (GET /logs/aggregate)
 // ==========================================
@@ -447,6 +480,10 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
         error: 'bucket is required.',
       });
     }
+
+    // ----------------------------------------
+    // Validate timestamps
+    // ----------------------------------------
 
     const sinceDate = new Date(since);
     const untilDate = new Date(until);
@@ -514,6 +551,19 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
     }
 
     // ----------------------------------------
+    // Validate service
+    // ----------------------------------------
+
+    if (
+      service !== undefined &&
+      typeof service !== 'string'
+    ) {
+      return res.status(400).json({
+        error: 'Invalid service parameter.',
+      });
+    }
+
+    // ----------------------------------------
     // Detect attribute filters
     // ----------------------------------------
 
@@ -521,56 +571,63 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
       key.startsWith('attr.')
     );
 
-    // ----------------------------------------
-    // Fast path:
-    // Use rollups for hourly aggregation
-    // when q/attributes are NOT involved.
+    // ==================================================
+    // ROLLUP PATH
     //
-    // We only use the rollup for the recent
-    // 24-hour window because the current
-    // refresh worker maintains that window.
-    // ----------------------------------------
+    // Use the pre-computed aggregate table for ALL
+    // supported bucket sizes:
+    //
+    //   1m -> log_rollups
+    //   5m -> log_rollups
+    //   1h -> log_rollups
+    //   1d -> log_rollups
+    //
+    // q and attr.* cannot use the rollup because the
+    // rollup table does not contain message/attributes.
+    // ==================================================
 
-   const canUseRollup =
-  bucket === '1h' &&
-  !q &&
-  !hasAttributeFilter;
-  /*  const canUseRollup =
-  bucket === '1h' &&
-  !q &&
-  !hasAttributeFilter &&
-  sinceDate >= new Date(
-    new Date().setMinutes(0, 0, 0)
-  );*/
+    const canUseRollup =
+      validBuckets.includes(bucket) &&
+      !q &&
+      !hasAttributeFilter;
 
     if (canUseRollup) {
       const rollupConditions = [
+        // IMPORTANT:
+        // Select ONLY the requested resolution.
+        eq(logRollups.bucketSize, bucket),
+
+        // Requested time range.
         gte(logRollups.bucketStart, sinceDate),
         sql`${logRollups.bucketStart} < ${untilDate}`,
       ];
 
-      if (service) {
-        if (typeof service !== 'string') {
-          return res.status(400).json({
-            error: 'Invalid service parameter.',
-          });
-        }
+      // ----------------------------------------
+      // Optional service filter
+      // ----------------------------------------
 
+      if (service !== undefined) {
         rollupConditions.push(
-          eq(logRollups.service, service)
+          eq(logRollups.service, service as string)
         );
       }
 
-      if (level) {
+      // ----------------------------------------
+      // Optional level filter
+      // ----------------------------------------
+
+      if (level !== undefined) {
         rollupConditions.push(
           eq(logRollups.level, level as string)
         );
       }
 
-      let results;
+      // ----------------------------------------
+      // group_by = service
+      // ----------------------------------------
 
       if (group_by === 'service') {
-        results = await db
+        const results = await db
           .select({
             start: logRollups.bucketStart,
             group: logRollups.service,
@@ -586,8 +643,21 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
             asc(logRollups.bucketStart)
           );
 
-      } else if (group_by === 'level') {
-        results = await db
+        return res.status(200).json({
+          buckets: results.map((row) => ({
+            start: row.start,
+            group: row.group,
+            count: Number(row.count),
+          })),
+        });
+      }
+
+      // ----------------------------------------
+      // group_by = level
+      // ----------------------------------------
+
+      if (group_by === 'level') {
+        const results = await db
           .select({
             start: logRollups.bucketStart,
             group: logRollups.level,
@@ -603,22 +673,33 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
             asc(logRollups.bucketStart)
           );
 
-      } else {
-        results = await db
-          .select({
-            start: logRollups.bucketStart,
-            group: sql<string | null>`NULL`,
-            count: sql<number>`sum(${logRollups.count})`,
-          })
-          .from(logRollups)
-          .where(and(...rollupConditions))
-          .groupBy(
-            logRollups.bucketStart
-          )
-          .orderBy(
-            asc(logRollups.bucketStart)
-          );
+        return res.status(200).json({
+          buckets: results.map((row) => ({
+            start: row.start,
+            group: row.group,
+            count: Number(row.count),
+          })),
+        });
       }
+
+      // ----------------------------------------
+      // No group_by
+      // ----------------------------------------
+
+      const results = await db
+        .select({
+          start: logRollups.bucketStart,
+          group: sql<string | null>`NULL`,
+          count: sql<number>`sum(${logRollups.count})`,
+        })
+        .from(logRollups)
+        .where(and(...rollupConditions))
+        .groupBy(
+          logRollups.bucketStart
+        )
+        .orderBy(
+          asc(logRollups.bucketStart)
+        );
 
       return res.status(200).json({
         buckets: results.map((row) => ({
@@ -629,38 +710,46 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
       });
     }
 
-    // ----------------------------------------
-    // Raw logs path
-    // Used for:
-    // - 1m
-    // - 5m
-    // - older ranges than rollup window
+    // ==================================================
+    // RAW LOGS PATH
+    //
+    // Used only when the rollup cannot answer the query:
+    //
     // - q
     // - attr.*
-    // ----------------------------------------
+    //
+    // The normal 1m/5m/1h/1d aggregation DOES NOT come
+    // here anymore.
+    // ==================================================
 
     const conditions = [
       gte(logs.timestamp, sinceDate),
       sql`${logs.timestamp} < ${untilDate}`,
     ];
 
-    if (service) {
-      if (typeof service !== 'string') {
-        return res.status(400).json({
-          error: 'Invalid service parameter.',
-        });
-      }
+    // ----------------------------------------
+    // Service filter
+    // ----------------------------------------
 
+    if (service !== undefined) {
       conditions.push(
-        eq(logs.service, service)
+        eq(logs.service, service as string)
       );
     }
 
-    if (level) {
+    // ----------------------------------------
+    // Level filter
+    // ----------------------------------------
+
+    if (level !== undefined) {
       conditions.push(
         eq(logs.level, level as string)
       );
     }
+
+    // ----------------------------------------
+    // Message search
+    // ----------------------------------------
 
     if (q) {
       if (typeof q !== 'string') {
@@ -808,5 +897,4 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
     });
   }
 });
-
 export default router;

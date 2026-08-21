@@ -87,6 +87,13 @@ export const logRollups = pgTable(
       length: 10,
     }),
 
+    // Rollup resolution: 1m, 1h, etc.
+    bucketSize: varchar("bucket_size", {
+      length: 2,
+    })
+      .notNull()
+      .default("1h"),
+
     count: integer("count")
       .notNull()
       .default(0),
@@ -97,8 +104,9 @@ export const logRollups = pgTable(
       .on(table.bucketStart),
 
     uniqueBucket: uniqueIndex(
-      "uq_log_rollups_bucket_service_level"
+      "uq_log_rollups_size_bucket_service_level"
     ).on(
+      table.bucketSize,
       table.bucketStart,
       table.service,
       table.level

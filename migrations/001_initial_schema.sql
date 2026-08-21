@@ -40,7 +40,6 @@ CREATE INDEX IF NOT EXISTS idx_logs_user_service_level_time
 CREATE INDEX IF NOT EXISTS idx_logs_message_trgm
     ON logs USING GIN (message gin_trgm_ops);
 
-
 -- ==========================================
 -- Rollups
 -- ==========================================
@@ -54,10 +53,12 @@ CREATE TABLE IF NOT EXISTS log_rollups (
 
     level VARCHAR(10),
 
+    bucket_size VARCHAR(2) NOT NULL DEFAULT '1h',
+
     count INTEGER NOT NULL DEFAULT 0,
 
-    CONSTRAINT uq_log_rollups_bucket_service_level
-        UNIQUE (bucket_start, service, level)
+    CONSTRAINT uq_log_rollups_size_bucket_service_level
+        UNIQUE (bucket_size, bucket_start, service, level)
 );
 
 CREATE INDEX IF NOT EXISTS idx_log_rollups_bucket

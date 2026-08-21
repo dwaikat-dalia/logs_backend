@@ -8,9 +8,8 @@ const connectionString =
 export const pool = new Pool({
   connectionString,
   max: 10,
-  min: 2,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
+  connectionTimeoutMillis: 15000,
   allowExitOnIdle: false,
 });
 
