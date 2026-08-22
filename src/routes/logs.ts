@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { db, pool } from '../db/database';
 import { logs } from '../db/schema';
-import { validateLogEntry } from '../utils/validator';
+import { validateLogEntry,escapeCopyText } from '../utils/validator';
 import {
   and,
   eq,
@@ -11,20 +11,14 @@ import {
   desc,
   asc,
 } from 'drizzle-orm';
-import { from as copyFrom } from 'pg-copy-streams';
-import { Readable } from 'stream';
 import { performance } from 'perf_hooks';
 import {
   encodeCursor,
   decodeCursor,
 } from '../utils/cursor';
-
+import { Readable } from 'stream';
+import { from as copyFrom } from 'pg-copy-streams';
 const router = Router();
-
-// ==========================================
-// 1. POST /logs
-// ==========================================
-
 router.post('/', async (req: Request, res: Response): Promise<any> => {
   const requestStart = performance.now();
 
@@ -466,10 +460,10 @@ router.get('/', async (req: Request, res: Response): Promise<any> => {
   }
 });
 
+
 // ==========================================
 // 3. GET /logs/aggregate (Direct Raw Logs Path)
 // ==========================================
-
 router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
   try {
     const {
@@ -487,37 +481,31 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
     // ----------------------------------------
 
     if (typeof since !== 'string') {
-      return res.status(400).json({
-        error: 'since is required.',
-      });
+      return res.status(400).json({ error: 'since is required.' });
     }
 
     if (typeof until !== 'string') {
-      return res.status(400).json({
-        error: 'until is required.',
-      });
+      return res.status(400).json({ error: 'until is required.' });
     }
 
     if (typeof bucket !== 'string') {
-      return res.status(400).json({
-        error: 'bucket is required.',
-      });
+      return res.status(400).json({ error: 'bucket is required.' });
     }
 
     // ----------------------------------------
-    // Validate timestamps
+    // Parse + validate timestamps
     // ----------------------------------------
 
     const sinceDate = new Date(since);
     const untilDate = new Date(until);
 
-    if (isNaN(sinceDate.getTime())) {
+    if (Number.isNaN(sinceDate.getTime())) {
       return res.status(400).json({
         error: 'Invalid since timestamp.',
       });
     }
 
-    if (isNaN(untilDate.getTime())) {
+    if (Number.isNaN(untilDate.getTime())) {
       return res.status(400).json({
         error: 'Invalid until timestamp.',
       });
@@ -533,13 +521,23 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
     // Validate bucket
     // ----------------------------------------
 
-    const validBuckets = ['1m', '5m', '1h', '1d'];
+    const bucketExpressions = {
+      '1m': sql`date_trunc('minute', ${logs.timestamp})`,
+      '5m': sql`to_timestamp(
+        floor(extract(epoch from ${logs.timestamp}) / 300) * 300
+      )`,
+      '1h': sql`date_trunc('hour', ${logs.timestamp})`,
+      '1d': sql`date_trunc('day', ${logs.timestamp})`,
+    } as const;
 
-    if (!validBuckets.includes(bucket)) {
+    if (!(bucket in bucketExpressions)) {
       return res.status(400).json({
         error: 'Invalid bucket. Must be 1m, 5m, 1h, or 1d.',
       });
     }
+
+    const timeBucket =
+      bucketExpressions[bucket as keyof typeof bucketExpressions];
 
     // ----------------------------------------
     // Validate group_by
@@ -559,13 +557,18 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
     // Validate level
     // ----------------------------------------
 
-    const validLevels = ['debug', 'info', 'warn', 'error'];
+    const validLevels = new Set([
+      'debug',
+      'info',
+      'warn',
+      'error',
+    ]);
 
     if (
       level !== undefined &&
       (
         typeof level !== 'string' ||
-        !validLevels.includes(level)
+        !validLevels.has(level)
       )
     ) {
       return res.status(400).json({
@@ -586,46 +589,41 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
       });
     }
 
-    // ==================================================
-    // RAW LOGS AGGREGATION PATH (Direct & Consistent)
-    // ==================================================
+    // ----------------------------------------
+    // Validate q
+    // ----------------------------------------
+
+    if (
+      q !== undefined &&
+      typeof q !== 'string'
+    ) {
+      return res.status(400).json({
+        error: 'Invalid q parameter.',
+      });
+    }
+
+    // ----------------------------------------
+    // Build WHERE conditions
+    // ----------------------------------------
 
     const conditions = [
       gte(logs.timestamp, sinceDate),
       sql`${logs.timestamp} < ${untilDate}`,
     ];
 
-    // ----------------------------------------
-    // Service filter
-    // ----------------------------------------
-
     if (service !== undefined) {
       conditions.push(
-        eq(logs.service, service as string)
+        eq(logs.service, service)
       );
     }
-
-    // ----------------------------------------
-    // Level filter
-    // ----------------------------------------
 
     if (level !== undefined) {
       conditions.push(
-        eq(logs.level, level as string)
+        eq(logs.level, level)
       );
     }
 
-    // ----------------------------------------
-    // Message search
-    // ----------------------------------------
-
-    if (q) {
-      if (typeof q !== 'string') {
-        return res.status(400).json({
-          error: 'Invalid q parameter.',
-        });
-      }
-
+    if (q !== undefined && q.length > 0) {
       conditions.push(
         ilike(logs.message, `%${q}%`)
       );
@@ -646,7 +644,7 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
         });
       }
 
-      const attributeKey = key.substring(5);
+      const attributeKey = key.slice(5);
 
       if (!attributeKey) {
         return res.status(400).json({
@@ -660,82 +658,39 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
     }
 
     // ----------------------------------------
-    // Time bucket calculation
+    // SELECT group expression
     // ----------------------------------------
 
-    const timeBucket = (() => {
-      switch (bucket) {
-        case '1m':
-          return sql`date_trunc('minute', ${logs.timestamp})`;
-
-        case '5m':
-          return sql`to_timestamp(floor(extract(epoch from ${logs.timestamp}) / 300) * 300)`;
-
-        case '1h':
-          return sql`date_trunc('hour', ${logs.timestamp})`;
-
-        case '1d':
-          return sql`date_trunc('day', ${logs.timestamp})`;
-
-        default:
-          throw new Error('Invalid bucket');
-      }
-    })();
+    const groupExpression =
+      group_by === 'service'
+        ? logs.service
+        : group_by === 'level'
+          ? logs.level
+          : sql<string | null>`NULL`;
 
     // ----------------------------------------
-    // Database Aggregation Query
+    // Single PostgreSQL aggregation query
     // ----------------------------------------
 
-    let results;
+    const results = await db
+      .select({
+        start: timeBucket,
+        group: groupExpression,
+        count: sql<number>`count(*)`,
+      })
+      .from(logs)
+      .where(and(...conditions))
+      .groupBy(
+        timeBucket,
+        groupExpression
+      )
+      .orderBy(
+        asc(timeBucket)
+      );
 
-    if (group_by === 'service') {
-      results = await db
-        .select({
-          start: timeBucket,
-          group: logs.service,
-          count: sql<number>`count(*)`,
-        })
-        .from(logs)
-        .where(and(...conditions))
-        .groupBy(
-          timeBucket,
-          logs.service
-        )
-        .orderBy(
-          asc(timeBucket)
-        );
-
-    } else if (group_by === 'level') {
-      results = await db
-        .select({
-          start: timeBucket,
-          group: logs.level,
-          count: sql<number>`count(*)`,
-        })
-        .from(logs)
-        .where(and(...conditions))
-        .groupBy(
-          timeBucket,
-          logs.level
-        )
-        .orderBy(
-          asc(timeBucket)
-        );
-
-    } else {
-      results = await db
-        .select({
-          start: timeBucket,
-          group: sql<string | null>`NULL`,
-          count: sql<number>`count(*)`,
-        })
-        .from(logs)
-        .where(and(...conditions))
-        .groupBy(timeBucket)
-        .orderBy(
-          asc(timeBucket)
-        );
-    }
+    // ----------------------------------------
+    // Response
+    // ----------------------------------------
 
     return res.status(200).json({
       buckets: results.map((row) => ({
@@ -753,5 +708,4 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
     });
   }
 });
-
 export default router;

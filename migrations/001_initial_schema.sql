@@ -1,11 +1,5 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
-
-
-DROP TABLE IF EXISTS log_rollups;
-
-
 CREATE TABLE IF NOT EXISTS logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 
@@ -23,14 +17,5 @@ CREATE TABLE IF NOT EXISTS logs (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-
-CREATE INDEX IF NOT EXISTS idx_logs_agg_filter
-    ON logs (timestamp, service, level);
-
-
-CREATE INDEX IF NOT EXISTS idx_logs_timestamp_desc
-    ON logs (timestamp DESC, id DESC);
-
-
-CREATE INDEX IF NOT EXISTS idx_logs_message_trgm
-    ON logs USING GIN (message gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_logs_timestamp
+    ON logs (timestamp DESC);

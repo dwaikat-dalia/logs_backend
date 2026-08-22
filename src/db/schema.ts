@@ -5,8 +5,8 @@ import {
   varchar,
   text,
   jsonb,
-  index,
   check,
+  index,
 } from "drizzle-orm/pg-core";
 
 import { sql } from "drizzle-orm";
@@ -47,19 +47,7 @@ export const logs = pgTable(
       sql`${table.level} IN ('debug', 'info', 'warn', 'error')`
     ),
 
-    aggFilterIdx: index("idx_logs_agg_filter").on(
-      table.timestamp,
-      table.service,
-      table.level
-    ),
-
-    timestampIdx: index("idx_logs_timestamp_desc").on(
-      table.timestamp.desc(),
-      table.id.desc()
-    ),
-
-    messageTrgmIdx: index("idx_logs_message_trgm")
-      .using("gin", table.message)
-      .with({ gin_trgm_ops: "gin_trgm_ops" }),
+    timestampIdx: index("idx_logs_timestamp")
+      .on(table.timestamp.desc()),
   })
 );

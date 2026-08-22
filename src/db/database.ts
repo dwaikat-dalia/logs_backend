@@ -7,15 +7,25 @@ const connectionString =
 
 export const pool = new Pool({
   connectionString,
-  max: 20,
+  max: 10,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
   allowExitOnIdle: false,
 });
 
+pool.on('error', (err) => {
+  console.error('Unexpected error on idle PostgreSQL client', err);
+});
+
 export const db = drizzle(pool);
 
 export async function connectDB() {
-  await pool.query('SELECT 1');
-  console.log('Database connected successfully');
+  const client = await pool.connect();
+
+  try {
+    await client.query('SELECT 1');
+    console.log('Database connected successfully');
+  } finally {
+    client.release();
+  }
 }
