@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { db, pool } from '../db/database';
-import { logs } from '../db/schema';
+import { logs, logsAggregateMinute } from '../db/schema';
 import { validateLogEntry,escapeCopyText } from '../utils/validator';
 import {
   and,
@@ -464,6 +464,10 @@ router.get('/', async (req: Request, res: Response): Promise<any> => {
 // ==========================================
 // 3. GET /logs/aggregate (Direct Raw Logs Path)
 // ==========================================
+// ==========================================
+// 3. GET /logs/aggregate
+// ==========================================
+
 router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
   try {
     const {
@@ -499,7 +503,7 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
     }
 
     // ----------------------------------------
-    // Parse + validate timestamps
+    // Validate timestamps
     // ----------------------------------------
 
     const sinceDate = new Date(since);
@@ -524,31 +528,21 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
     }
 
     // ----------------------------------------
-    // Bucket expression
+    // Validate bucket
     // ----------------------------------------
 
-    const bucketExpressions = {
-      '1m': sql`date_trunc('minute', ${logs.timestamp})`,
+    const validBuckets = new Set([
+      '1m',
+      '5m',
+      '1h',
+      '1d',
+    ]);
 
-      '5m': sql`
-        to_timestamp(
-          floor(extract(epoch from ${logs.timestamp}) / 300) * 300
-        )
-      `,
-
-      '1h': sql`date_trunc('hour', ${logs.timestamp})`,
-
-      '1d': sql`date_trunc('day', ${logs.timestamp})`,
-    } as const;
-
-    if (!(bucket in bucketExpressions)) {
+    if (!validBuckets.has(bucket)) {
       return res.status(400).json({
         error: 'Invalid bucket. Must be 1m, 5m, 1h, or 1d.',
       });
     }
-
-    const timeBucket =
-      bucketExpressions[bucket as keyof typeof bucketExpressions];
 
     // ----------------------------------------
     // Validate group_by
@@ -614,7 +608,15 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
     }
 
     // ----------------------------------------
-    // Build WHERE conditions
+    // Detect attribute filters
+    // ----------------------------------------
+
+    const hasAttributeFilter = Object.keys(req.query).some(
+      (key) => key.startsWith('attr.')
+    );
+
+    // ----------------------------------------
+    // Build raw logs conditions
     // ----------------------------------------
 
     const conditions = [
@@ -669,61 +671,199 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
     }
 
     // ==================================================
-    // AGGREGATION
+    // FAST PATH
+    // ==================================================
+    //
+    // Use the pre-aggregated table when the query does
+    // not require message/attribute filtering.
+    //
+    // q and attr.* cannot be answered from the aggregate
+    // table because those values are not stored there.
+    //
     // ==================================================
 
-    let results;
+    const isExactMinuteBoundary =
+      sinceDate.getUTCSeconds() === 0 &&
+      sinceDate.getUTCMilliseconds() === 0 &&
+      untilDate.getUTCSeconds() === 0 &&
+      untilDate.getUTCMilliseconds() === 0;
 
-    // ----------------------------------------
-    // No group_by
-    // ----------------------------------------
-    //
-    // IMPORTANT:
-    // Do NOT put NULL in GROUP BY.
-    // PostgreSQL interprets GROUP BY NULL incorrectly
-    // with this generated query.
-    //
-    // ----------------------------------------
+    const canUseAggregateTable =
+      q === undefined &&
+      !hasAttributeFilter &&
+      isExactMinuteBoundary;
 
-    if (group_by === undefined) {
-      results = await db
+    if (canUseAggregateTable) {
+
+      // ----------------------------------------------
+      // Bucket expression
+      // ----------------------------------------------
+
+      const aggregateBucketExpressions = {
+        '1m': sql`
+          ${logsAggregateMinute.bucketStart}
+        `,
+
+        '5m': sql`
+          to_timestamp(
+            floor(
+              extract(
+                epoch from ${logsAggregateMinute.bucketStart}
+              ) / 300
+            ) * 300
+          )
+        `,
+
+        '1h': sql`
+          date_trunc(
+            'hour',
+            ${logsAggregateMinute.bucketStart}
+          )
+        `,
+
+        '1d': sql`
+          date_trunc(
+            'day',
+            ${logsAggregateMinute.bucketStart}
+          )
+        `,
+      } as const;
+
+      const aggregateTimeBucket =
+        aggregateBucketExpressions[
+          bucket as keyof typeof aggregateBucketExpressions
+        ];
+
+      // ----------------------------------------------
+      // Aggregate conditions
+      // ----------------------------------------------
+
+      const aggregateConditions = [
+        gte(
+          logsAggregateMinute.bucketStart,
+          sinceDate
+        ),
+
+        sql`
+          ${logsAggregateMinute.bucketStart} < ${untilDate}
+        `,
+      ];
+
+      if (service !== undefined) {
+        aggregateConditions.push(
+          eq(
+            logsAggregateMinute.service,
+            service
+          )
+        );
+      }
+
+      if (level !== undefined) {
+        aggregateConditions.push(
+          eq(
+            logsAggregateMinute.level,
+            level
+          )
+        );
+      }
+
+      // ==============================================
+      // No group_by
+      // ==============================================
+
+      if (group_by === undefined) {
+
+        const results = await db
+          .select({
+            start: aggregateTimeBucket,
+
+            count: sql<number>`
+              SUM(${logsAggregateMinute.count})
+            `,
+          })
+          .from(logsAggregateMinute)
+          .where(
+            and(...aggregateConditions)
+          )
+          .groupBy(
+            aggregateTimeBucket
+          )
+          .orderBy(
+            asc(aggregateTimeBucket)
+          );
+
+        return res.status(200).json({
+          buckets: results.map((row) => ({
+            start: row.start,
+            group: null,
+            count: Number(row.count),
+          })),
+        });
+      }
+
+      // ==============================================
+      // Group by service
+      // ==============================================
+
+      if (group_by === 'service') {
+
+        const results = await db
+          .select({
+            start: aggregateTimeBucket,
+
+            group: logsAggregateMinute.service,
+
+            count: sql<number>`
+              SUM(${logsAggregateMinute.count})
+            `,
+          })
+          .from(logsAggregateMinute)
+          .where(
+            and(...aggregateConditions)
+          )
+          .groupBy(
+            aggregateTimeBucket,
+            logsAggregateMinute.service
+          )
+          .orderBy(
+            asc(aggregateTimeBucket),
+            asc(logsAggregateMinute.service)
+          );
+
+        return res.status(200).json({
+          buckets: results.map((row) => ({
+            start: row.start,
+            group: row.group,
+            count: Number(row.count),
+          })),
+        });
+      }
+
+      // ==============================================
+      // Group by level
+      // ==============================================
+
+      const results = await db
         .select({
-          start: timeBucket,
-          count: sql<number>`count(*)`,
+          start: aggregateTimeBucket,
+
+          group: logsAggregateMinute.level,
+
+          count: sql<number>`
+            SUM(${logsAggregateMinute.count})
+          `,
         })
-        .from(logs)
-        .where(and(...conditions))
-        .groupBy(timeBucket)
-        .orderBy(asc(timeBucket));
-
-      return res.status(200).json({
-        buckets: results.map((row) => ({
-          start: row.start,
-          group: null,
-          count: Number(row.count),
-        })),
-      });
-    }
-
-    // ----------------------------------------
-    // Group by service
-    // ----------------------------------------
-
-    if (group_by === 'service') {
-      results = await db
-        .select({
-          start: timeBucket,
-          group: logs.service,
-          count: sql<number>`count(*)`,
-        })
-        .from(logs)
-        .where(and(...conditions))
+        .from(logsAggregateMinute)
+        .where(
+          and(...aggregateConditions)
+        )
         .groupBy(
-          timeBucket,
-          logs.service
+          aggregateTimeBucket,
+          logsAggregateMinute.level
         )
         .orderBy(
-          asc(timeBucket)
+          asc(aggregateTimeBucket),
+          asc(logsAggregateMinute.level)
         );
 
       return res.status(200).json({
@@ -735,24 +875,148 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
       });
     }
 
-    // ----------------------------------------
-    // Group by level
-    // ----------------------------------------
+    // ==================================================
+    // FALLBACK PATH
+    // ==================================================
+    //
+    // Required when:
+    //
+    // - q is present
+    // - attr.* is present
+    // - timestamp range is not minute-aligned
+    //
+    // This keeps the original exact behavior.
+    //
+    // ==================================================
 
-    results = await db
+    const rawBucketExpressions = {
+      '1m': sql`
+        date_trunc(
+          'minute',
+          ${logs.timestamp}
+        )
+      `,
+
+      '5m': sql`
+        to_timestamp(
+          floor(
+            extract(
+              epoch from ${logs.timestamp}
+            ) / 300
+          ) * 300
+        )
+      `,
+
+      '1h': sql`
+        date_trunc(
+          'hour',
+          ${logs.timestamp}
+        )
+      `,
+
+      '1d': sql`
+        date_trunc(
+          'day',
+          ${logs.timestamp}
+        )
+      `,
+    } as const;
+
+    const rawTimeBucket =
+      rawBucketExpressions[
+        bucket as keyof typeof rawBucketExpressions
+      ];
+
+    // ==============================================
+    // No group_by
+    // ==============================================
+
+    if (group_by === undefined) {
+
+      const results = await db
+        .select({
+          start: rawTimeBucket,
+          count: sql<number>`count(*)`,
+        })
+        .from(logs)
+        .where(
+          and(...conditions)
+        )
+        .groupBy(
+          rawTimeBucket
+        )
+        .orderBy(
+          asc(rawTimeBucket)
+        );
+
+      return res.status(200).json({
+        buckets: results.map((row) => ({
+          start: row.start,
+          group: null,
+          count: Number(row.count),
+        })),
+      });
+    }
+
+    // ==============================================
+    // Group by service
+    // ==============================================
+
+    if (group_by === 'service') {
+
+      const results = await db
+        .select({
+          start: rawTimeBucket,
+
+          group: logs.service,
+
+          count: sql<number>`count(*)`,
+        })
+        .from(logs)
+        .where(
+          and(...conditions)
+        )
+        .groupBy(
+          rawTimeBucket,
+          logs.service
+        )
+        .orderBy(
+          asc(rawTimeBucket),
+          asc(logs.service)
+        );
+
+      return res.status(200).json({
+        buckets: results.map((row) => ({
+          start: row.start,
+          group: row.group,
+          count: Number(row.count),
+        })),
+      });
+    }
+
+    // ==============================================
+    // Group by level
+    // ==============================================
+
+    const results = await db
       .select({
-        start: timeBucket,
+        start: rawTimeBucket,
+
         group: logs.level,
+
         count: sql<number>`count(*)`,
       })
       .from(logs)
-      .where(and(...conditions))
+      .where(
+        and(...conditions)
+      )
       .groupBy(
-        timeBucket,
+        rawTimeBucket,
         logs.level
       )
       .orderBy(
-        asc(timeBucket)
+        asc(rawTimeBucket),
+        asc(logs.level)
       );
 
     return res.status(200).json({
@@ -764,7 +1028,10 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
     });
 
   } catch (err) {
-    console.error('Error aggregating logs:', err);
+    console.error(
+      'Error aggregating logs:',
+      err
+    );
 
     return res.status(500).json({
       error: 'Internal server error while aggregating logs',
