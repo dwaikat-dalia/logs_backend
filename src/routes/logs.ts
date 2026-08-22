@@ -481,15 +481,21 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
     // ----------------------------------------
 
     if (typeof since !== 'string') {
-      return res.status(400).json({ error: 'since is required.' });
+      return res.status(400).json({
+        error: 'since is required.',
+      });
     }
 
     if (typeof until !== 'string') {
-      return res.status(400).json({ error: 'until is required.' });
+      return res.status(400).json({
+        error: 'until is required.',
+      });
     }
 
     if (typeof bucket !== 'string') {
-      return res.status(400).json({ error: 'bucket is required.' });
+      return res.status(400).json({
+        error: 'bucket is required.',
+      });
     }
 
     // ----------------------------------------
@@ -518,15 +524,20 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
     }
 
     // ----------------------------------------
-    // Validate bucket
+    // Bucket expression
     // ----------------------------------------
 
     const bucketExpressions = {
       '1m': sql`date_trunc('minute', ${logs.timestamp})`,
-      '5m': sql`to_timestamp(
-        floor(extract(epoch from ${logs.timestamp}) / 300) * 300
-      )`,
+
+      '5m': sql`
+        to_timestamp(
+          floor(extract(epoch from ${logs.timestamp}) / 300) * 300
+        )
+      `,
+
       '1h': sql`date_trunc('hour', ${logs.timestamp})`,
+
       '1d': sql`date_trunc('day', ${logs.timestamp})`,
     } as const;
 
@@ -657,40 +668,92 @@ router.get('/aggregate', async (req: Request, res: Response): Promise<any> => {
       );
     }
 
-    // ----------------------------------------
-    // SELECT group expression
-    // ----------------------------------------
+    // ==================================================
+    // AGGREGATION
+    // ==================================================
 
-    const groupExpression =
-      group_by === 'service'
-        ? logs.service
-        : group_by === 'level'
-          ? logs.level
-          : sql<string | null>`NULL`;
+    let results;
 
     // ----------------------------------------
-    // Single PostgreSQL aggregation query
+    // No group_by
+    // ----------------------------------------
+    //
+    // IMPORTANT:
+    // Do NOT put NULL in GROUP BY.
+    // PostgreSQL interprets GROUP BY NULL incorrectly
+    // with this generated query.
+    //
     // ----------------------------------------
 
-    const results = await db
+    if (group_by === undefined) {
+      results = await db
+        .select({
+          start: timeBucket,
+          count: sql<number>`count(*)`,
+        })
+        .from(logs)
+        .where(and(...conditions))
+        .groupBy(timeBucket)
+        .orderBy(asc(timeBucket));
+
+      return res.status(200).json({
+        buckets: results.map((row) => ({
+          start: row.start,
+          group: null,
+          count: Number(row.count),
+        })),
+      });
+    }
+
+    // ----------------------------------------
+    // Group by service
+    // ----------------------------------------
+
+    if (group_by === 'service') {
+      results = await db
+        .select({
+          start: timeBucket,
+          group: logs.service,
+          count: sql<number>`count(*)`,
+        })
+        .from(logs)
+        .where(and(...conditions))
+        .groupBy(
+          timeBucket,
+          logs.service
+        )
+        .orderBy(
+          asc(timeBucket)
+        );
+
+      return res.status(200).json({
+        buckets: results.map((row) => ({
+          start: row.start,
+          group: row.group,
+          count: Number(row.count),
+        })),
+      });
+    }
+
+    // ----------------------------------------
+    // Group by level
+    // ----------------------------------------
+
+    results = await db
       .select({
         start: timeBucket,
-        group: groupExpression,
+        group: logs.level,
         count: sql<number>`count(*)`,
       })
       .from(logs)
       .where(and(...conditions))
       .groupBy(
         timeBucket,
-        groupExpression
+        logs.level
       )
       .orderBy(
         asc(timeBucket)
       );
-
-    // ----------------------------------------
-    // Response
-    // ----------------------------------------
 
     return res.status(200).json({
       buckets: results.map((row) => ({

@@ -4,10 +4,9 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 const connectionString =
   process.env.DATABASE_URL ||
   'postgres://postgres:password@localhost:5432/logs_db';
-
 export const pool = new Pool({
   connectionString,
-  max: 10,
+  max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
   allowExitOnIdle: false,
