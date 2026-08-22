@@ -6,7 +6,8 @@ const connectionString =
   'postgres://postgres:password@localhost:5432/logs_db';
 export const pool = new Pool({
   connectionString,
-  max: 20,
+  max: 10,
+ min:5,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
   allowExitOnIdle: false,

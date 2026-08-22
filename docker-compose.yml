@@ -13,7 +13,7 @@ services:
       - -c
       - shared_buffers=256MB
       - -c
-      - work_mem=16MB
+      - work_mem=32MB
       - -c
       - maintenance_work_mem=128MB
       - -c
